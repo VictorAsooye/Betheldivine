@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const SYSTEM_PROMPT = `You are a form designer for a home healthcare agency called Bethel Divine Healthcare Services.
 Your job is to generate form schemas based on user descriptions.
 
@@ -33,7 +31,7 @@ Rules:
 - Include all relevant fields for the described form type
 - Typical healthcare forms include: patient info, date/time, signatures, notes, status fields`;
 
-async function generateWithRetry(prompt: string, targetRole: string, category: string): Promise<string> {
+async function generateWithRetry(anthropic: Anthropic, prompt: string, targetRole: string, category: string): Promise<string> {
   const userPrompt = `Create a form for a home healthcare agency with these requirements:
 Description: ${prompt}
 Target audience: ${targetRole}
@@ -68,6 +66,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey === "sk-ant-your_anthropic_api_key") {
+    return NextResponse.json(
+      { error: "AI features are not configured. Please add the ANTHROPIC_API_KEY in Vercel environment settings." },
+      { status: 503 }
+    );
+  }
+
   const body = await request.json();
   const { prompt, target_role, category } = body;
 
@@ -75,8 +81,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
+  const anthropic = new Anthropic({ apiKey });
+
   try {
-    let raw = await generateWithRetry(prompt, target_role ?? "all", category ?? "Other");
+    let raw = await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
 
     // Strip markdown code fences if present (safety net)
     raw = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
@@ -86,14 +94,15 @@ export async function POST(request: NextRequest) {
       schema = JSON.parse(raw);
     } catch {
       // Retry once
-      const raw2 = await generateWithRetry(prompt, target_role ?? "all", category ?? "Other");
+      const raw2 = await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
       const cleaned = raw2.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
       schema = JSON.parse(cleaned);
     }
 
     return NextResponse.json({ schema });
-  } catch (err) {
-    console.error("[AI] Form generation failed:", err);
-    return NextResponse.json({ error: "Failed to generate form. Please try again." }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[AI] Form generation failed:", message);
+    return NextResponse.json({ error: `Failed to generate form: ${message}` }, { status: 500 });
   }
 }
