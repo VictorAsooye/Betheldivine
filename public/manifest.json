@@ -1,0 +1,26 @@
+{
+  "name": "Bethel Divine Healthcare",
+  "short_name": "BethelDivine",
+  "description": "Bethel Divine Healthcare Services LLC — Operations Portal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#1a2e4a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "medical"],
+  "lang": "en-US"
+}
