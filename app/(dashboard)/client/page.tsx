@@ -69,14 +69,15 @@ export default async function ClientDashboard() {
               Monthly Payment
             </h2>
             <p className="text-sm font-sans mb-4" style={{ color: "#8e9ab0" }}>
-              Secure Stripe-powered payments are available in Phase 4.
+              View your balance and make secure payments online.
             </p>
-            <div
-              className="flex items-center justify-center h-20 rounded-lg border-2 border-dashed"
-              style={{ borderColor: "#dce2ec" }}
+            <a
+              href="/client/payments"
+              className="flex items-center justify-center w-full py-3 rounded-lg text-white text-sm font-semibold font-sans transition-colors"
+              style={{ backgroundColor: "#1a2e4a" }}
             >
-              <p className="text-sm font-sans" style={{ color: "#8e9ab0" }}>Pay Balance — Coming Phase 4</p>
-            </div>
+              Go to Payments
+            </a>
           </div>
 
           <div className="bg-white rounded-xl border p-6" style={{ borderColor: "#dce2ec" }}>

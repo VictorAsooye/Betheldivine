@@ -146,16 +146,16 @@ export default async function AdminDashboard() {
               {[
                 { label: "Supabase Database", status: "Operational" },
                 { label: "Authentication", status: "Operational" },
-                { label: "Stripe Payments", status: "Phase 4" },
-                { label: "EVV Integration", status: "Phase 4" },
+                { label: "Stripe Payments", status: "Operational" },
+                { label: "EVV Integration", status: process.env.MARYLAND_EVV_API_KEY && process.env.MARYLAND_EVV_API_KEY !== "your_evv_api_key" ? "Operational" : "Needs Setup" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <span className="text-sm font-sans" style={{ color: "#1a2e4a" }}>{item.label}</span>
                   <span
                     className="text-xs font-semibold font-sans px-2 py-1 rounded-full"
                     style={{
-                      color: item.status === "Operational" ? "#2d8a5e" : "#c8991a",
-                      backgroundColor: item.status === "Operational" ? "#f0faf5" : "#fdf8ec",
+                      color: item.status === "Operational" ? "#2d8a5e" : "#c0392b",
+                      backgroundColor: item.status === "Operational" ? "#f0faf5" : "#fef2f2",
                     }}
                   >
                     {item.status}
