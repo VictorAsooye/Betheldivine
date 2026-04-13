@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+export const maxDuration = 60; // seconds — Vercel Hobby max
+
 const SYSTEM_PROMPT = `You are a form designer for a home healthcare agency called Bethel Divine Healthcare Services.
 Your job is to generate form schemas based on user descriptions.
 
