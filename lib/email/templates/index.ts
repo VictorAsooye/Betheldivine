@@ -302,6 +302,76 @@ export function paymentOverdueTemplate(data: {
   };
 }
 
+export function newUserRequestTemplate(data: {
+  adminName: string;
+  newUserName: string;
+  newUserEmail: string;
+  usersUrl: string;
+}) {
+  return {
+    subject: `New account request — ${data.newUserName}`,
+    html: branded(`
+      ${h1("New Account Request")}
+      ${p(`Hi ${data.adminName}, a new user has registered and is awaiting role assignment.`)}
+      ${divider()}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;width:140px;">Name</td>
+          <td style="padding:10px 0;font-size:14px;font-weight:600;color:#1a2e4a;">${data.newUserName}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Email</td>
+          <td style="padding:10px 0;font-size:14px;color:#1a2e4a;">${data.newUserEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Status</td>
+          <td style="padding:10px 0;">${badge("Pending Review", "#c8991a", "#fef9ec")}</td>
+        </tr>
+      </table>
+      ${p("Please review this request and assign the appropriate role so the user can access the portal.")}
+      ${btn("Review Users", data.usersUrl)}
+      ${muted("This user will not have portal access until a role is assigned.")}
+    `),
+  };
+}
+
+export function roleAssignedOwnerNotificationTemplate(data: {
+  ownerName: string;
+  userName: string;
+  userEmail: string;
+  newRole: string;
+  assignedBy: string;
+}) {
+  const roleName = data.newRole.charAt(0).toUpperCase() + data.newRole.slice(1);
+  return {
+    subject: `User confirmed — ${data.userName} assigned as ${roleName}`,
+    html: branded(`
+      ${h1("User Role Confirmed")}
+      ${p(`Hi ${data.ownerName}, a user account has been confirmed and assigned a role.`)}
+      ${divider()}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;width:140px;">Name</td>
+          <td style="padding:10px 0;font-size:14px;font-weight:600;color:#1a2e4a;">${data.userName}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Email</td>
+          <td style="padding:10px 0;font-size:14px;color:#1a2e4a;">${data.userEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Role Assigned</td>
+          <td style="padding:10px 0;">${badge(roleName, "#2d8a5e", "#f0faf5")}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Confirmed By</td>
+          <td style="padding:10px 0;font-size:14px;color:#1a2e4a;">${data.assignedBy}</td>
+        </tr>
+      </table>
+      ${muted("This is an informational notice. No action is required.")}
+    `),
+  };
+}
+
 export function invoiceTemplate(data: {
   name: string;
   billingMonth: string;

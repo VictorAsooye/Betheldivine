@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { writeAuditLog } from "@/lib/audit";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
-import { roleAssignedTemplate } from "@/lib/email/templates";
+import { roleAssignedTemplate, roleAssignedOwnerNotificationTemplate } from "@/lib/email/templates";
 
 export async function PATCH(
   request: NextRequest,
@@ -54,12 +55,47 @@ export async function PATCH(
   // Send role-change email if role was updated
   if (role !== undefined && data.email) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://betheldivine.com";
-    const tpl = roleAssignedTemplate({
+
+    // Email the user about their new role
+    const userTpl = roleAssignedTemplate({
       name: data.full_name ?? "Team Member",
       newRole: role,
       loginUrl: `${baseUrl}/login`,
     });
-    sendEmail({ to: data.email, subject: tpl.subject, html: tpl.html, actorId: user.id }).catch(() => {});
+    sendEmail({ to: data.email, subject: userTpl.subject, html: userTpl.html, actorId: user.id }).catch(() => {});
+
+    // Fetch admin's name for the notification
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
+    // Notify all owners
+    const service = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: owners } = await service
+      .from("profiles")
+      .select("full_name, email")
+      .eq("role", "owner")
+      .eq("is_active", true);
+
+    if (owners && owners.length > 0) {
+      Promise.allSettled(
+        owners.map((owner) => {
+          const tpl = roleAssignedOwnerNotificationTemplate({
+            ownerName: owner.full_name ?? "Owner",
+            userName: data.full_name ?? "User",
+            userEmail: data.email,
+            newRole: role,
+            assignedBy: adminProfile?.full_name ?? "Admin",
+          });
+          return sendEmail({ to: owner.email, subject: tpl.subject, html: tpl.html });
+        })
+      ).catch(() => {});
+    }
   }
 
   return NextResponse.json(data);

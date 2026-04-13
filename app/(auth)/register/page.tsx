@@ -45,6 +45,13 @@ export default function RegisterPage() {
       return;
     }
 
+    // Notify all admins and owners of the new request (fire-and-forget)
+    fetch("/api/auth/notify-new-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fullName, email }),
+    }).catch(() => {});
+
     router.push("/pending");
   }
 
