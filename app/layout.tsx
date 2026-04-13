@@ -42,6 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/logo-icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logo-icon.png" />
       </head>
       <body className={`${lora.variable} ${sourceSans.variable} font-sans antialiased`}>

@@ -35,40 +35,104 @@ export default function LoginPage() {
     <div className="min-h-screen flex">
       {/* Left — Brand Panel */}
       <div
-        className="hidden lg:flex lg:w-1/2 flex-col justify-between px-12 py-14"
-        style={{ backgroundColor: "#122038" }}
+        className="hidden lg:flex lg:w-1/2 flex-col"
+        style={{
+          backgroundColor: "#0d1b32",
+          padding: "36px 32px",
+          justifyContent: "space-between",
+        }}
       >
+        {/* Top section */}
         <div>
-          <div className="mb-10">
-            <BethelLogo variant="full" width={220} />
-          </div>
           <p
-            className="mt-2 text-lg leading-relaxed italic"
-            style={{ color: "#8e9ab0", fontFamily: "var(--font-lora), Georgia, serif" }}
-          >
-            &ldquo;Serving You Is What We Do Best&rdquo;
-          </p>
-          <p
-            className="mt-4 text-sm font-sans font-semibold tracking-widest uppercase"
-            style={{ color: "#c8991a", opacity: 0.85 }}
+            className="font-sans"
+            style={{
+              color: "#c8991a",
+              fontSize: "11px",
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              marginBottom: "16px",
+            }}
           >
             Internal Portal
           </p>
+          <h1
+            style={{
+              fontFamily: "var(--font-lora), Georgia, serif",
+              fontSize: "52px",
+              color: "#ffffff",
+              lineHeight: 1.1,
+              fontWeight: 400,
+              marginBottom: "6px",
+            }}
+          >
+            Bethel-<br />Divine
+          </h1>
+          <p
+            className="font-sans"
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "12px",
+              letterSpacing: "0.5px",
+              marginBottom: "14px",
+            }}
+          >
+            Health Care Services, LLC
+          </p>
+          <div
+            style={{
+              width: "28px",
+              height: "2px",
+              backgroundColor: "#c8991a",
+              marginBottom: "14px",
+            }}
+          />
+          <p
+            className="font-sans"
+            style={{
+              color: "rgba(255,255,255,0.45)",
+              fontSize: "12px",
+              fontStyle: "italic",
+              lineHeight: 1.7,
+            }}
+          >
+            &ldquo;Bringing Professional,<br />Medical Care Closer to You&rdquo;
+          </p>
         </div>
 
-        <div className="space-y-3">
-          <div
-            className="h-px w-16"
-            style={{ backgroundColor: "#c8991a", opacity: 0.4 }}
-          />
-          <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>
-            Licensed Home Health Agency
+        {/* Bottom section — contact card */}
+        <div
+          style={{
+            backgroundColor: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "6px",
+            padding: "14px 16px",
+          }}
+        >
+          <p
+            className="font-sans"
+            style={{
+              color: "rgba(255,255,255,0.35)",
+              fontSize: "9px",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              marginBottom: "10px",
+            }}
+          >
+            Contact &amp; Info
           </p>
-          <p className="text-xs font-sans font-semibold" style={{ color: "#8e9ab0" }}>
+          <p className="font-sans" style={{ color: "rgba(255,255,255,0.6)", fontSize: "11px", marginBottom: "5px" }}>
+            443-822-2012
+          </p>
+          <p className="font-sans" style={{ color: "rgba(255,255,255,0.6)", fontSize: "11px", marginBottom: "5px" }}>
+            Pikesville, MD 21215
+          </p>
+          <p className="font-sans" style={{ color: "rgba(255,255,255,0.6)", fontSize: "11px", marginBottom: "5px" }}>
+            Mon–Fri: 9:00am – 5:00pm
+          </p>
+          <div style={{ width: "100%", height: "1px", backgroundColor: "rgba(255,255,255,0.08)", margin: "10px 0" }} />
+          <p className="font-sans" style={{ color: "#c8991a", fontSize: "11px", fontWeight: 500 }}>
             License No. R4205
-          </p>
-          <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>
-            Windsor Mill, Maryland
           </p>
         </div>
       </div>
