@@ -16,7 +16,7 @@ The JSON must match this exact structure:
   "fields": [
     {
       "id": "snake_case_unique_id",
-      "type": "text|textarea|select|multiselect|boolean|date|datetime|number|email|phone",
+      "type": "section|text|textarea|select|multiselect|boolean|date|datetime|number|email|phone",
       "label": "string",
       "required": true|false,
       "options": ["array", "only", "for", "select", "and", "multiselect", "types"],
@@ -26,12 +26,17 @@ The JSON must match this exact structure:
 }
 
 Rules:
-- Use snake_case for field IDs (e.g. "patient_name", "incident_date")
+- ALWAYS organize fields into logical sections using the "section" type as a header before each group
+- "section" fields have only "id", "type", and "label" — no required, options, or placeholder
+- Use snake_case for field IDs (e.g. "section_personal", "patient_name", "incident_date")
 - Only include "options" for select and multiselect field types
 - "placeholder" is optional but helps user experience
 - Make forms professional and healthcare-appropriate
+- Model your section structure after real healthcare forms: Personal Information, Emergency Contact, Employment Details, Certifications, Health & Compliance, Signatures, etc.
 - Include all relevant fields for the described form type
-- Typical healthcare forms include: patient info, date/time, signatures, notes, status fields`;
+- Always end with a Signatures & Acknowledgment section
+- Typical sections for employee forms: Personal Information, Emergency Contact, Employment Details, Availability, Certifications & Licenses, Health & Compliance, Signatures & Acknowledgment
+- Typical sections for client forms: Client Information, Medical History, Care Goals, Scheduled Services, Safety Considerations, Signatures & Authorization`;
 
 async function generateWithRetry(anthropic: Anthropic, prompt: string, targetRole: string, category: string): Promise<string> {
   const userPrompt = `Create a form for a home healthcare agency with these requirements:
