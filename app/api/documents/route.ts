@@ -4,17 +4,28 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const BUCKET = "documents";
 
-// GET — list documents (admin/owner: all; others: own)
-export async function GET() {
+// GET — list documents (admin/owner: all; others: own). Optional ?folder_id= or ?unorganized=1
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url);
+  const folderId = searchParams.get("folder_id");
+  const unorganized = searchParams.get("unorganized");
+
+  let query = supabase
     .from("documents")
-    .select("id, file_name, file_size, mime_type, category, description, created_at, uploader_id, profiles(full_name)")
+    .select("id, file_name, file_size, mime_type, category, description, created_at, uploader_id, folder_id, profiles(full_name)")
     .order("created_at", { ascending: false });
 
+  if (folderId) {
+    query = query.eq("folder_id", folderId);
+  } else if (unorganized === "1") {
+    query = query.is("folder_id", null);
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);
 }
@@ -29,6 +40,7 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
   const category = (formData.get("category") as string) ?? "Other";
   const description = (formData.get("description") as string) ?? "";
+  const folderId = (formData.get("folder_id") as string) || null;
 
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
@@ -76,6 +88,7 @@ export async function POST(request: NextRequest) {
       mime_type: file.type,
       category,
       description: description || null,
+      folder_id: folderId,
     })
     .select()
     .single();
