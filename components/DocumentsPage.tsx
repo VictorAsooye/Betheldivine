@@ -232,7 +232,13 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   async function handleShare(doc: Doc, e: React.MouseEvent) {
     e.stopPropagation();
     const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
-    const url = `${base}/view/${doc.id}`;
+    // Use filename as the URL slug so it reads like /view/caregiver-evaluation-form?d=uuid
+    const slug = doc.file_name
+      .replace(/\.[^/.]+$/, "")          // strip extension
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")       // replace non-alphanumeric with dash
+      .replace(/^-+|-+$/g, "");          // trim leading/trailing dashes
+    const url = `${base}/view/${slug || "document"}?d=${doc.id}`;
     await navigator.clipboard.writeText(url);
     setCopiedId(doc.id);
     setTimeout(() => setCopiedId(null), 2500);

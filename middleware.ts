@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-const PUBLIC_PATHS = ["/login", "/register", "/pending", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/register", "/pending", "/api/auth", "/forms", "/view", "/api/forms", "/api/documents"];
 
 const ROLE_HOME: Record<string, string> = {
   admin: "/admin",
