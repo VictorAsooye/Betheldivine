@@ -47,8 +47,8 @@ const TYPE_COLOR: Record<string, { bg: string; color: string }> = {
   date:        { bg: "#fdf8ec", color: "#c8991a" },
   datetime:    { bg: "#fdf8ec", color: "#c8991a" },
   number:      { bg: "#fef2f2", color: "#c0392b" },
-  email:       { bg: "#f0f4ff", color: "#1a6b7c" },
-  phone:       { bg: "#f0f4ff", color: "#1a6b7c" },
+  email:       { bg: "#f0f4ff", color: "#2AADAD" },
+  phone:       { bg: "#f0f4ff", color: "#2AADAD" },
 };
 
 function generateId() {
@@ -658,7 +658,7 @@ export default function FormBuilderPage({ role }: FormBuilderPageProps) {
                           style={copied === form.id ? {
                             borderColor: "#a7dfc4", color: "#2d8a5e", backgroundColor: "#f0faf5",
                           } : {
-                            borderColor: "#dce2ec", color: "#1a6b7c", backgroundColor: "transparent",
+                            borderColor: "#dce2ec", color: "#2AADAD", backgroundColor: "transparent",
                           }}>
                           {copied === form.id ? (
                             <>

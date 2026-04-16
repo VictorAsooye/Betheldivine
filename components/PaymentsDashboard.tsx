@@ -298,7 +298,7 @@ export default function PaymentsDashboard() {
                               onClick={() => handleRetrySync(p)}
                               disabled={syncing === p.id}
                               className="text-xs font-sans font-semibold px-2.5 py-1 rounded-lg transition-all disabled:opacity-50"
-                              style={{ color: "#1a6b7c", backgroundColor: "#f0f9fa", border: "1px solid #1a6b7c" }}
+                              style={{ color: "#2AADAD", backgroundColor: "#f0f9fa", border: "1px solid #2AADAD" }}
                             >
                               {syncing === p.id ? "Syncing…" : "Retry Sync"}
                             </button>

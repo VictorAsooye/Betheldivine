@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string; border: string }> = {
   owner:    { label: "Owner",    color: "#7c3aed", bg: "#f7f0fa", border: "#d8b4fe" },
   employee: { label: "Employee", color: "#2d8a5e", bg: "#f0faf5", border: "#a7dfc4" },
-  client:   { label: "Client",   color: "#1a6b7c", bg: "#f0f8fa", border: "#a5d4dc" },
+  client:   { label: "Client",   color: "#2AADAD", bg: "#f0f8fa", border: "#a5d4dc" },
 };
 
 interface ViewAsBannerProps {

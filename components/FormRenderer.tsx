@@ -92,7 +92,7 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
               return (
                 <div key={field.id} style={{ marginTop: "8px", marginBottom: "4px" }}>
                   <div style={{
-                    backgroundColor: "#1a6b7c",
+                    backgroundColor: "#2AADAD",
                     color: "#ffffff",
                     fontWeight: 700,
                     fontSize: "12px",
@@ -185,7 +185,7 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
                           <input type="checkbox" checked={selected}
                             onChange={() => toggleMulti(field.id, opt)}
                             disabled={readOnly}
-                            style={{ accentColor: "#1a6b7c" }} />
+                            style={{ accentColor: "#2AADAD" }} />
                           <span className="text-sm font-sans" style={{ color: "#1a2e4a" }}>{opt}</span>
                         </label>
                       );
@@ -203,9 +203,9 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
                           onClick={() => !readOnly && set(field.id, val)}
                           className="px-6 py-2 rounded-lg text-sm font-semibold font-sans border transition-colors"
                           style={{
-                            backgroundColor: selected ? "#1a6b7c" : "#ffffff",
+                            backgroundColor: selected ? "#2AADAD" : "#ffffff",
                             color: selected ? "#ffffff" : "#1a2e4a",
-                            borderColor: selected ? "#1a6b7c" : "#dce2ec",
+                            borderColor: selected ? "#2AADAD" : "#dce2ec",
                           }}>
                           {opt}
                         </button>

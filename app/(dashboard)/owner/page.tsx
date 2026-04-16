@@ -68,7 +68,7 @@ export default async function OwnerDashboard() {
           <StatCard
             label="Pending Time Off"
             value={pendingTimeOff ?? 0}
-            accent="#1a6b7c"
+            accent="#2AADAD"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />

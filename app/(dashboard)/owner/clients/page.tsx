@@ -108,7 +108,7 @@ export default function OwnerClientsPage() {
                   <div key={client.id} className="grid grid-cols-5 px-6 py-4 items-center">
                     <div className="col-span-2 flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                        style={{ backgroundColor: "#1a6b7c" }}>
+                        style={{ backgroundColor: "#2AADAD" }}>
                         {p?.full_name?.charAt(0).toUpperCase() ?? "?"}
                       </div>
                       <div>

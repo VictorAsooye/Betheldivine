@@ -19,7 +19,7 @@ const config: Config = {
         "gray-400": "#8e9ab0",
         green: "#2d8a5e",
         red: "#c0392b",
-        teal: "#1a6b7c",
+        teal: "#2AADAD",
       },
       fontFamily: {
         lora: ["var(--font-lora)", "Georgia", "serif"],

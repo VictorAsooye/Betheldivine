@@ -56,7 +56,7 @@ export default async function AdminDashboard() {
           <StatCard
             label="Active Forms"
             value="—"
-            accent="#1a6b7c"
+            accent="#2AADAD"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
@@ -98,7 +98,7 @@ export default async function AdminDashboard() {
                 {[
                   { role: "owner",    href: "/owner",    label: "Owner",    icon: "👔", color: "#7c3aed", bg: "#f7f0fa", border: "#d8b4fe" },
                   { role: "employee", href: "/employee", label: "Employee", icon: "🩺", color: "#2d8a5e", bg: "#f0faf5", border: "#a7dfc4" },
-                  { role: "client",   href: "/client",   label: "Client",   icon: "🏠", color: "#1a6b7c", bg: "#f0f8fa", border: "#a5d4dc" },
+                  { role: "client",   href: "/client",   label: "Client",   icon: "🏠", color: "#2AADAD", bg: "#f0f8fa", border: "#a5d4dc" },
                 ].map((item) => (
                   <Link key={item.role} href={item.href}
                     className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border text-center transition-all hover:shadow-md"

@@ -209,7 +209,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
           <button
             onClick={() => setCurrentFolder(null)}
             className="text-sm font-semibold font-sans"
-            style={{ color: currentFolder ? "#1a6b7c" : "#1a2e4a" }}
+            style={{ color: currentFolder ? "#2AADAD" : "#1a2e4a" }}
           >
             All Documents
           </button>
