@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
-import { type FormSchema, type FormField } from "@/components/FormRenderer";
+import FormRenderer, { type FormSchema, type FormField } from "@/components/FormRenderer";
 
 interface SavedForm {
   id: string;
@@ -221,6 +221,8 @@ export default function FormBuilderPage({ role }: FormBuilderPageProps) {
   const [loadingForms, setLoadingForms] = useState(true);
 
   const { current: schema, set: setSchema, undo, redo, canUndo, canRedo, reset } = useUndoHistory<FormSchema>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -363,6 +365,15 @@ export default function FormBuilderPage({ role }: FormBuilderPageProps) {
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   }
 
+  function copyLink(formId: string) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    const url = `${baseUrl}/forms/${formId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(formId);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
   const basePath = `/${role}/forms`;
 
   return (
@@ -463,87 +474,104 @@ export default function FormBuilderPage({ role }: FormBuilderPageProps) {
         <div ref={previewRef}>
           {schema ? (
             <div className="bg-white rounded-xl border" style={{ borderColor: "#dce2ec" }}>
-              {/* Header */}
-              <div className="px-6 py-4 border-b" style={{ borderColor: "#dce2ec" }}>
-                <div className="flex items-center justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-semibold font-sans uppercase tracking-wide" style={{ color: "#c8991a" }}>
-                      Edit &amp; Preview
-                    </span>
-                    {/* Undo / Redo */}
-                    <button type="button" onClick={undo} disabled={!canUndo} title="Undo (last change)"
-                      className="ml-3 p-1.5 rounded disabled:opacity-30"
-                      style={{ color: canUndo ? "#1a2e4a" : "#8e9ab0" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" />
-                      </svg>
+              {/* Tab bar */}
+              <div className="px-6 pt-4 pb-0 border-b flex items-center justify-between" style={{ borderColor: "#dce2ec" }}>
+                <div className="flex gap-1">
+                  {["Edit", "Preview"].map((tab) => (
+                    <button key={tab} type="button"
+                      onClick={() => setPreviewMode(tab === "Preview")}
+                      className="px-4 py-2 text-sm font-semibold font-sans rounded-t-lg border-b-2 transition-colors"
+                      style={{
+                        borderColor: (previewMode ? tab === "Preview" : tab === "Edit") ? "#1a2e4a" : "transparent",
+                        color: (previewMode ? tab === "Preview" : tab === "Edit") ? "#1a2e4a" : "#8e9ab0",
+                        backgroundColor: "transparent",
+                      }}>
+                      {tab}
                     </button>
-                    <button type="button" onClick={redo} disabled={!canRedo} title="Redo"
-                      className="p-1.5 rounded disabled:opacity-30"
-                      style={{ color: canRedo ? "#1a2e4a" : "#8e9ab0" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="15 14 20 9 15 4" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" />
-                      </svg>
-                    </button>
-                  </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 pb-2">
+                  {!previewMode && (
+                    <>
+                      <button type="button" onClick={undo} disabled={!canUndo} title="Undo"
+                        className="p-1.5 rounded disabled:opacity-30" style={{ color: "#8e9ab0" }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                      </button>
+                      <button type="button" onClick={redo} disabled={!canRedo} title="Redo"
+                        className="p-1.5 rounded disabled:opacity-30" style={{ color: "#8e9ab0" }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 14 20 9 15 4" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" /></svg>
+                      </button>
+                    </>
+                  )}
                   <button onClick={handleSave} disabled={saving}
-                    className="px-5 py-2 rounded-lg text-white text-sm font-semibold font-sans shrink-0 disabled:opacity-60"
+                    className="px-4 py-1.5 rounded-lg text-white text-sm font-semibold font-sans shrink-0 disabled:opacity-60"
                     style={{ backgroundColor: "#1a2e4a" }}>
                     {saving ? "Saving…" : "Save Form"}
                   </button>
                 </div>
-
-                {/* Editable title */}
-                <input type="text" value={schema.title}
-                  onChange={(e) => updateSchema({ ...schema, title: e.target.value })}
-                  className="w-full text-lg font-semibold bg-transparent outline-none border-b border-transparent focus:border-gray-300 pb-0.5 mb-2"
-                  style={{ color: "#1a2e4a", fontFamily: "var(--font-lora), Georgia, serif" }}
-                  placeholder="Form title…" />
-
-                {/* Editable description */}
-                <input type="text" value={schema.description ?? ""}
-                  onChange={(e) => updateSchema({ ...schema, description: e.target.value })}
-                  className="w-full text-sm bg-transparent outline-none border-b border-transparent focus:border-gray-300 pb-0.5"
-                  style={{ color: "#8e9ab0" }}
-                  placeholder="Description (optional)…" />
               </div>
 
-              {/* Fields */}
-              <div className="px-6 py-4 space-y-2">
-                {(schema.fields ?? []).length === 0 && (
-                  <p className="text-sm font-sans text-center py-4" style={{ color: "#8e9ab0" }}>No fields yet. Add one below.</p>
-                )}
-                {(schema.fields ?? []).map((field, i) => (
-                  <FieldRow key={field.id} field={field} index={i} total={schema.fields.length}
-                    onChange={(updated) => updateField(i, updated)}
-                    onDelete={() => deleteField(i)}
-                    onMove={(dir) => moveField(i, dir)} />
-                ))}
+              {/* Edit mode */}
+              {!previewMode && (
+                <>
+                  <div className="px-6 pt-4 pb-2">
+                    <input type="text" value={schema.title}
+                      onChange={(e) => updateSchema({ ...schema, title: e.target.value })}
+                      className="w-full text-lg font-semibold bg-transparent outline-none border-b border-transparent focus:border-gray-300 pb-0.5 mb-2"
+                      style={{ color: "#1a2e4a", fontFamily: "var(--font-lora), Georgia, serif" }}
+                      placeholder="Form title…" />
+                    <input type="text" value={schema.description ?? ""}
+                      onChange={(e) => updateSchema({ ...schema, description: e.target.value })}
+                      className="w-full text-sm bg-transparent outline-none border-b border-transparent focus:border-gray-300 pb-0.5"
+                      style={{ color: "#8e9ab0" }}
+                      placeholder="Description (optional)…" />
+                  </div>
+                  <div className="px-6 py-4 space-y-2">
+                    {(schema.fields ?? []).length === 0 && (
+                      <p className="text-sm font-sans text-center py-4" style={{ color: "#8e9ab0" }}>No fields yet. Add one below.</p>
+                    )}
+                    {(schema.fields ?? []).map((field, i) => (
+                      <FieldRow key={field.id} field={field} index={i} total={schema.fields.length}
+                        onChange={(updated) => updateField(i, updated)}
+                        onDelete={() => deleteField(i)}
+                        onMove={(dir) => moveField(i, dir)} />
+                    ))}
+                    <button type="button" onClick={addField}
+                      className="w-full py-2.5 rounded-lg border-2 border-dashed text-sm font-semibold font-sans flex items-center justify-center gap-2 mt-2 transition-colors"
+                      style={{ borderColor: "#dce2ec", color: "#8e9ab0" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1a2e4a"; e.currentTarget.style.color = "#1a2e4a"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#dce2ec"; e.currentTarget.style.color = "#8e9ab0"; }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Add Field
+                    </button>
+                  </div>
+                  {saveError && <div className="px-6 py-3 text-sm font-sans" style={{ color: "#c0392b" }}>{saveError}</div>}
+                  <div className="px-6 py-4 border-t flex items-center justify-between" style={{ borderColor: "#dce2ec" }}>
+                    <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>
+                      {(schema.fields ?? []).length} fields · {ROLES.find(r => r.value === targetRole)?.label} · {category}
+                    </p>
+                    <button onClick={handleSave} disabled={saving}
+                      className="px-5 py-2 rounded-lg text-white text-sm font-semibold font-sans disabled:opacity-60"
+                      style={{ backgroundColor: "#1a2e4a" }}>
+                      {saving ? "Saving…" : "Save Form"}
+                    </button>
+                  </div>
+                </>
+              )}
 
-                <button type="button" onClick={addField}
-                  className="w-full py-2.5 rounded-lg border-2 border-dashed text-sm font-semibold font-sans flex items-center justify-center gap-2 mt-2 transition-colors"
-                  style={{ borderColor: "#dce2ec", color: "#8e9ab0" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1a2e4a"; e.currentTarget.style.color = "#1a2e4a"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#dce2ec"; e.currentTarget.style.color = "#8e9ab0"; }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Add Field
-                </button>
-              </div>
-
-              {saveError && <div className="px-6 py-3 text-sm font-sans" style={{ color: "#c0392b" }}>{saveError}</div>}
-
-              <div className="px-6 py-4 border-t flex items-center justify-between" style={{ borderColor: "#dce2ec" }}>
-                <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>
-                  {(schema.fields ?? []).length} fields · {ROLES.find(r => r.value === targetRole)?.label} · {category}
-                </p>
-                <button onClick={handleSave} disabled={saving}
-                  className="px-5 py-2 rounded-lg text-white text-sm font-semibold font-sans disabled:opacity-60"
-                  style={{ backgroundColor: "#1a2e4a" }}>
-                  {saving ? "Saving…" : "Save Form"}
-                </button>
-              </div>
+              {/* Preview mode */}
+              {previewMode && (
+                <div className="p-6">
+                  <div className="mb-3 px-3 py-2 rounded-lg text-xs font-sans font-semibold flex items-center gap-2"
+                    style={{ backgroundColor: "#fdf8ec", color: "#c8991a", border: "1px solid #f0d9a0" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Preview — this is exactly how the form appears to users
+                  </div>
+                  <FormRenderer schema={schema} readOnly />
+                </div>
+              )}
             </div>
           ) : (
             <div className="min-h-64 flex items-center justify-center rounded-xl border border-dashed" style={{ borderColor: "#dce2ec" }}>
@@ -617,11 +645,34 @@ export default function FormBuilderPage({ role }: FormBuilderPageProps) {
                       </button>
                     </td>
                     <td className="px-5 py-4">
-                      <Link href={`${basePath}/${form.id}/submissions`}
-                        className="text-xs font-sans font-semibold px-3 py-1.5 rounded-lg border"
-                        style={{ borderColor: "#dce2ec", color: "#1a2e4a" }}>
-                        View Submissions
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`${basePath}/${form.id}/submissions`}
+                          className="text-xs font-sans font-semibold px-3 py-1.5 rounded-lg border"
+                          style={{ borderColor: "#dce2ec", color: "#1a2e4a" }}>
+                          View Submissions
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => copyLink(form.id)}
+                          className="text-xs font-sans font-semibold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-colors"
+                          style={copied === form.id ? {
+                            borderColor: "#a7dfc4", color: "#2d8a5e", backgroundColor: "#f0faf5",
+                          } : {
+                            borderColor: "#dce2ec", color: "#1a6b7c", backgroundColor: "transparent",
+                          }}>
+                          {copied === form.id ? (
+                            <>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                              Copy Link
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
