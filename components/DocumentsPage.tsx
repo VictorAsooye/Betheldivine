@@ -228,13 +228,12 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
     a.href = data.url; a.download = data.file_name; a.target = "_blank"; a.click();
   }
 
-  // ── Share (24-hour link) ─────────────────────────────────
+  // ── Share — copy link to hosted viewer page ──────────────
   async function handleShare(doc: Doc, e: React.MouseEvent) {
     e.stopPropagation();
-    const res = await fetch(`/api/documents/${doc.id}?share=1`);
-    const data = await res.json();
-    if (!res.ok || !data.url) return;
-    await navigator.clipboard.writeText(data.url);
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    const url = `${base}/view/${doc.id}`;
+    await navigator.clipboard.writeText(url);
     setCopiedId(doc.id);
     setTimeout(() => setCopiedId(null), 2500);
   }

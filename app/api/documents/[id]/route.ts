@@ -30,11 +30,10 @@ export async function GET(
 
   const expiresIn = isShare ? 60 * 60 * 24 : 300; // 24 hours vs 5 minutes
 
+  // Never set download:true — iframes/img tags need inline URLs; the browser a.download handles forced downloads
   const { data: signed, error: signError } = await service.storage
     .from(BUCKET)
-    .createSignedUrl(doc.file_path, expiresIn, {
-      download: !isShare, // share links open in browser; download links force-download
-    });
+    .createSignedUrl(doc.file_path, expiresIn);
 
   if (signError || !signed) {
     return NextResponse.json({ error: "Failed to generate link" }, { status: 500 });
