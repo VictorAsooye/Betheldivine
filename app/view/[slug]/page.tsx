@@ -52,9 +52,9 @@ export default function DocumentViewPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: "15px", color: "#ffffff", letterSpacing: "0.5px" }}>
+          <a href="/" style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: "15px", color: "#ffffff", letterSpacing: "0.5px", textDecoration: "none" }}>
             BETHEL-DIVINE
-          </span>
+          </a>
           <span style={{ width: "1px", height: "18px", backgroundColor: "rgba(255,255,255,0.15)" }} />
           {doc && (
             <span style={{ color: "#8e9ab0", fontSize: "13px", fontFamily: "system-ui, sans-serif" }}>
