@@ -4,18 +4,20 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const BUCKET = "documents";
 
-// GET — signed download URL
+// GET — signed URL. ?share=1 gives a 24-hour shareable link; default is 5-minute download link.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const isShare = new URL(request.url).searchParams.get("share") === "1";
+
   const { data: doc, error } = await supabase
     .from("documents")
-    .select("file_path, file_name")
+    .select("file_path, file_name, mime_type")
     .eq("id", params.id)
     .single();
 
@@ -26,15 +28,24 @@ export async function GET(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  const expiresIn = isShare ? 60 * 60 * 24 : 300; // 24 hours vs 5 minutes
+
   const { data: signed, error: signError } = await service.storage
     .from(BUCKET)
-    .createSignedUrl(doc.file_path, 300); // 5-minute link
+    .createSignedUrl(doc.file_path, expiresIn, {
+      download: !isShare, // share links open in browser; download links force-download
+    });
 
   if (signError || !signed) {
-    return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate link" }, { status: 500 });
   }
 
-  return NextResponse.json({ url: signed.signedUrl, file_name: doc.file_name });
+  return NextResponse.json({
+    url: signed.signedUrl,
+    file_name: doc.file_name,
+    mime_type: doc.mime_type,
+    expires_in: expiresIn,
+  });
 }
 
 // PATCH — rename document (file_name, category, description)

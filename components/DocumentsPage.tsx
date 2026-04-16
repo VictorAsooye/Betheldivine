@@ -86,6 +86,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  // Share link state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const canManageFolders = role === "admin" || role === "owner";
   const canDelete = role === "admin" || role === "owner";
   const canRename = role === "admin" || role === "owner";
@@ -223,6 +226,17 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
     if (!res.ok || !data.url) return;
     const a = document.createElement("a");
     a.href = data.url; a.download = data.file_name; a.target = "_blank"; a.click();
+  }
+
+  // ── Share (24-hour link) ─────────────────────────────────
+  async function handleShare(doc: Doc, e: React.MouseEvent) {
+    e.stopPropagation();
+    const res = await fetch(`/api/documents/${doc.id}?share=1`);
+    const data = await res.json();
+    if (!res.ok || !data.url) return;
+    await navigator.clipboard.writeText(data.url);
+    setCopiedId(doc.id);
+    setTimeout(() => setCopiedId(null), 2500);
   }
 
   // ── Delete doc ───────────────────────────────────────────
@@ -537,6 +551,26 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 justify-end">
+                        {/* Share — copy 24-hour link */}
+                        <button onClick={(e) => handleShare(doc, e)}
+                          className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-colors"
+                          style={copiedId === doc.id ? {
+                            borderColor: "#a7dfc4", color: "#2d8a5e", backgroundColor: "#f0faf5",
+                          } : {
+                            borderColor: "#dce2ec", color: "#2AADAD", backgroundColor: "transparent",
+                          }}>
+                          {copiedId === doc.id ? (
+                            <>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                              Share
+                            </>
+                          )}
+                        </button>
                         <button onClick={(e) => handleDownload(doc, e)}
                           className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg border"
                           style={{ color: "#1a2e4a", borderColor: "#dce2ec" }}>
@@ -582,6 +616,26 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <button
+                  onClick={(e) => handleShare(previewDoc, e)}
+                  className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg border transition-colors"
+                  style={copiedId === previewDoc.id ? {
+                    borderColor: "#a7dfc4", color: "#2d8a5e", backgroundColor: "#f0faf5",
+                  } : {
+                    borderColor: "#dce2ec", color: "#2AADAD",
+                  }}>
+                  {copiedId === previewDoc.id ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                      Link Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      Share
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={(e) => handleDownload(previewDoc, e)}
                   className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg border"
