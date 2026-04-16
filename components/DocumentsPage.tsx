@@ -56,7 +56,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Navigation state
-  const [currentFolder, setCurrentFolder] = useState<Folder | null>(null); // null = root view
+  const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
 
   // Upload state
   const [showUpload, setShowUpload] = useState(false);
@@ -75,8 +75,19 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
 
+  // Inline rename state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  // Preview modal state
+  const [previewDoc, setPreviewDoc] = useState<Doc | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   const canManageFolders = role === "admin" || role === "owner";
   const canDelete = role === "admin" || role === "owner";
+  const canRename = role === "admin" || role === "owner";
 
   // ── Fetch ────────────────────────────────────────────────
   async function fetchAll() {
@@ -101,7 +112,46 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
     }
   }
 
-  useEffect(() => { fetchAll(); }, [currentFolder]);
+  useEffect(() => { fetchAll(); }, [currentFolder]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Open preview ─────────────────────────────────────────
+  async function openPreview(doc: Doc) {
+    setPreviewDoc(doc);
+    setPreviewUrl(null);
+    setPreviewLoading(true);
+    const res = await fetch(`/api/documents/${doc.id}`);
+    const data = await res.json();
+    if (res.ok && data.url) setPreviewUrl(data.url);
+    setPreviewLoading(false);
+  }
+
+  function closePreview() {
+    setPreviewDoc(null);
+    setPreviewUrl(null);
+  }
+
+  // ── Rename ───────────────────────────────────────────────
+  function startRename(doc: Doc, e: React.MouseEvent) {
+    e.stopPropagation();
+    setEditingId(doc.id);
+    setEditingName(doc.file_name);
+    setTimeout(() => renameRef.current?.select(), 30);
+  }
+
+  async function commitRename(docId: string) {
+    const trimmed = editingName.trim();
+    if (!trimmed) { setEditingId(null); return; }
+    setEditingId(null);
+    const res = await fetch(`/api/documents/${docId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_name: trimmed }),
+    });
+    if (res.ok) {
+      setDocs((prev) => prev.map((d) => d.id === docId ? { ...d, file_name: trimmed } : d));
+      if (previewDoc?.id === docId) setPreviewDoc((p) => p ? { ...p, file_name: trimmed } : p);
+    }
+  }
 
   // ── Create folder ────────────────────────────────────────
   async function handleCreateFolder(e: React.FormEvent) {
@@ -118,9 +168,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create folder");
       setFolders((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setFolderName("");
-      setFolderDesc("");
-      setShowNewFolder(false);
+      setFolderName(""); setFolderDesc(""); setShowNewFolder(false);
     } catch (e) {
       setFolderError(e instanceof Error ? e.message : "Failed to create folder");
     } finally {
@@ -140,24 +188,18 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedFile) return;
-    setUploading(true);
-    setUploadError(null);
-    setUploadSuccess(false);
-
+    setUploading(true); setUploadError(null); setUploadSuccess(false);
     const fd = new FormData();
     fd.append("file", selectedFile);
     fd.append("category", category);
     fd.append("description", description);
     if (currentFolder) fd.append("folder_id", currentFolder.id);
-
     try {
       const res = await fetch("/api/documents", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setUploadSuccess(true);
-      setSelectedFile(null);
-      setDescription("");
-      setCategory("Other");
+      setSelectedFile(null); setDescription(""); setCategory("Other");
       if (fileRef.current) fileRef.current.value = "";
       setShowUpload(false);
       fetchAll();
@@ -169,31 +211,28 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   }
 
   // ── Download ─────────────────────────────────────────────
-  async function handleDownload(doc: Doc) {
+  async function handleDownload(doc: Doc, e?: React.MouseEvent) {
+    e?.stopPropagation();
     const res = await fetch(`/api/documents/${doc.id}`);
     const data = await res.json();
     if (!res.ok || !data.url) return;
     const a = document.createElement("a");
-    a.href = data.url;
-    a.download = data.file_name;
-    a.target = "_blank";
-    a.click();
+    a.href = data.url; a.download = data.file_name; a.target = "_blank"; a.click();
   }
 
   // ── Delete doc ───────────────────────────────────────────
-  async function handleDeleteDoc(id: string) {
+  async function handleDeleteDoc(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
     if (!confirm("Delete this document? This cannot be undone.")) return;
     await fetch(`/api/documents/${id}`, { method: "DELETE" });
     setDocs((prev) => prev.filter((d) => d.id !== id));
+    if (previewDoc?.id === id) closePreview();
   }
 
   // ── Render ───────────────────────────────────────────────
   return (
     <div>
-      <PageHeader
-        title="Documents"
-        subtitle="Upload and manage forms, records, and files"
-      />
+      <PageHeader title="Documents" subtitle="Upload and manage forms, records, and files" />
 
       <div className="p-8">
         {uploadSuccess && (
@@ -206,11 +245,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
 
         {/* ── Breadcrumb ── */}
         <div className="flex items-center gap-2 mb-5">
-          <button
-            onClick={() => setCurrentFolder(null)}
+          <button onClick={() => setCurrentFolder(null)}
             className="text-sm font-semibold font-sans"
-            style={{ color: currentFolder ? "#2AADAD" : "#1a2e4a" }}
-          >
+            style={{ color: currentFolder ? "#2AADAD" : "#1a2e4a" }}>
             All Documents
           </button>
           {currentFolder && (
@@ -221,46 +258,33 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
           )}
         </div>
 
-        {/* ── Root view: show folders + unorganized docs ── */}
+        {/* ── Root view: folders + unorganized ── */}
         {!currentFolder && (
           <>
-            {/* Folder grid */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold font-sans uppercase tracking-wide" style={{ color: "#8e9ab0" }}>Libraries</h2>
                 {canManageFolders && (
-                  <button
-                    onClick={() => setShowNewFolder(true)}
+                  <button onClick={() => setShowNewFolder(true)}
                     className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg border"
-                    style={{ color: "#1a2e4a", borderColor: "#dce2ec" }}
-                  >
+                    style={{ color: "#1a2e4a", borderColor: "#dce2ec" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                     New Library
                   </button>
                 )}
               </div>
 
-              {/* New folder form */}
               {showNewFolder && (
                 <form onSubmit={handleCreateFolder} className="bg-white rounded-xl border p-5 mb-4 max-w-sm" style={{ borderColor: "#dce2ec" }}>
                   <p className="text-sm font-semibold font-sans mb-3" style={{ color: "#1a2e4a" }}>New Library</p>
-                  <input
-                    type="text"
-                    value={folderName}
-                    onChange={(e) => setFolderName(e.target.value)}
-                    placeholder="Library name"
-                    required
+                  <input type="text" value={folderName} onChange={(e) => setFolderName(e.target.value)}
+                    placeholder="Library name" required
                     className="w-full px-3 py-2 rounded-lg border text-sm font-sans outline-none mb-2"
-                    style={{ borderColor: "#dce2ec", color: "#1a2e4a" }}
-                  />
-                  <input
-                    type="text"
-                    value={folderDesc}
-                    onChange={(e) => setFolderDesc(e.target.value)}
+                    style={{ borderColor: "#dce2ec", color: "#1a2e4a" }} />
+                  <input type="text" value={folderDesc} onChange={(e) => setFolderDesc(e.target.value)}
                     placeholder="Description (optional)"
                     className="w-full px-3 py-2 rounded-lg border text-sm font-sans outline-none mb-3"
-                    style={{ borderColor: "#dce2ec", color: "#1a2e4a" }}
-                  />
+                    style={{ borderColor: "#dce2ec", color: "#1a2e4a" }} />
                   {folderError && <p className="text-xs font-sans mb-2" style={{ color: "#c0392b" }}>{folderError}</p>}
                   <div className="flex gap-2">
                     <button type="submit" disabled={creatingFolder}
@@ -269,8 +293,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
                       {creatingFolder ? "Creating…" : "Create"}
                     </button>
                     <button type="button" onClick={() => { setShowNewFolder(false); setFolderName(""); setFolderDesc(""); }}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold font-sans"
-                      style={{ color: "#8e9ab0" }}>
+                      className="px-4 py-2 rounded-lg text-sm font-semibold font-sans" style={{ color: "#8e9ab0" }}>
                       Cancel
                     </button>
                   </div>
@@ -279,7 +302,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
 
               {folders.length === 0 && !showNewFolder ? (
                 <div className="bg-white rounded-xl border p-6 text-center" style={{ borderColor: "#dce2ec" }}>
-                  <p className="text-sm font-sans" style={{ color: "#8e9ab0" }}>No libraries yet. {canManageFolders ? "Create one to organize your documents." : ""}</p>
+                  <p className="text-sm font-sans" style={{ color: "#8e9ab0" }}>
+                    No libraries yet. {canManageFolders ? "Create one to organize your documents." : ""}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -293,13 +318,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
                         <p className="text-xs font-sans mt-0.5 truncate" style={{ color: "#8e9ab0" }}>{folder.description}</p>
                       )}
                       {canManageFolders && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
                           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 rounded"
-                          style={{ color: "#c0392b", backgroundColor: "#fef2f2" }}
-                        >
-                          ✕
-                        </button>
+                          style={{ color: "#c0392b", backgroundColor: "#fef2f2" }}>✕</button>
                       )}
                     </div>
                   ))}
@@ -307,14 +328,11 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
               )}
             </div>
 
-            {/* Unorganized docs section header */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold font-sans uppercase tracking-wide" style={{ color: "#8e9ab0" }}>Unorganized Files</h2>
-              <button
-                onClick={() => setShowUpload(true)}
+              <button onClick={() => setShowUpload(true)}
                 className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: "#1a2e4a", color: "#ffffff" }}
-              >
+                style={{ backgroundColor: "#1a2e4a", color: "#ffffff" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
@@ -324,7 +342,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
           </>
         )}
 
-        {/* ── Inside a folder ── */}
+        {/* ── Inside a folder header ── */}
         {currentFolder && (
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -335,19 +353,15 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
             </div>
             <div className="flex gap-2">
               {canManageFolders && (
-                <button
-                  onClick={() => handleDeleteFolder(currentFolder.id)}
+                <button onClick={() => handleDeleteFolder(currentFolder.id)}
                   className="text-sm font-semibold font-sans px-3 py-1.5 rounded-lg"
-                  style={{ color: "#c0392b", backgroundColor: "#fef2f2" }}
-                >
+                  style={{ color: "#c0392b", backgroundColor: "#fef2f2" }}>
                   Delete Library
                 </button>
               )}
-              <button
-                onClick={() => setShowUpload(true)}
+              <button onClick={() => setShowUpload(true)}
                 className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: "#1a2e4a", color: "#ffffff" }}
-              >
+                style={{ backgroundColor: "#1a2e4a", color: "#ffffff" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
@@ -367,11 +381,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
               <button onClick={() => setShowUpload(false)} className="text-sm font-sans" style={{ color: "#8e9ab0" }}>Cancel</button>
             </div>
             <form onSubmit={handleUpload} className="space-y-4">
-              <div
-                className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer"
+              <div className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer"
                 style={{ borderColor: selectedFile ? "#2d8a5e" : "#dce2ec", backgroundColor: selectedFile ? "#f0faf5" : "#f7f9fc" }}
-                onClick={() => fileRef.current?.click()}
-              >
+                onClick={() => fileRef.current?.click()}>
                 <input ref={fileRef} type="file" className="hidden"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
@@ -450,13 +462,48 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
               </thead>
               <tbody>
                 {docs.map((doc, i) => (
-                  <tr key={doc.id} style={{ borderBottom: i < docs.length - 1 ? "1px solid #dce2ec" : undefined }}>
+                  <tr key={doc.id}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    style={{ borderBottom: i < docs.length - 1 ? "1px solid #dce2ec" : undefined }}
+                    onClick={() => openPreview(doc)}>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">{fileIcon(doc.mime_type)}</span>
-                        <div>
-                          <p className="text-sm font-semibold font-sans" style={{ color: "#1a2e4a" }}>{doc.file_name}</p>
-                          {doc.description && <p className="text-xs font-sans mt-0.5" style={{ color: "#8e9ab0" }}>{doc.description}</p>}
+                        <span className="text-xl flex-shrink-0">{fileIcon(doc.mime_type)}</span>
+                        <div className="min-w-0">
+                          {/* Inline rename */}
+                          {editingId === doc.id && canRename ? (
+                            <input
+                              ref={renameRef}
+                              type="text"
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onBlur={() => commitRename(doc.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitRename(doc.id);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-sm font-semibold font-sans px-1.5 py-0.5 rounded border outline-none w-full"
+                              style={{ color: "#1a2e4a", borderColor: "#2AADAD", backgroundColor: "#f0fdfe" }}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-1.5 group/name">
+                              <p className="text-sm font-semibold font-sans truncate" style={{ color: "#1a2e4a" }}>{doc.file_name}</p>
+                              {canRename && (
+                                <button
+                                  onClick={(e) => startRename(doc, e)}
+                                  className="opacity-0 group-hover/name:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded"
+                                  title="Rename"
+                                  style={{ color: "#8e9ab0" }}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {doc.description && <p className="text-xs font-sans mt-0.5 truncate" style={{ color: "#8e9ab0" }}>{doc.description}</p>}
                           {doc.file_size && <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>{formatSize(doc.file_size)}</p>}
                         </div>
                       </div>
@@ -477,13 +524,13 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => handleDownload(doc)}
+                        <button onClick={(e) => handleDownload(doc, e)}
                           className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg border"
                           style={{ color: "#1a2e4a", borderColor: "#dce2ec" }}>
                           Download
                         </button>
                         {canDelete && (
-                          <button onClick={() => handleDeleteDoc(doc.id)}
+                          <button onClick={(e) => handleDeleteDoc(doc.id, e)}
                             className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg"
                             style={{ color: "#c0392b", backgroundColor: "#fef2f2" }}>
                             Delete
@@ -498,6 +545,110 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
           </div>
         )}
       </div>
+
+      {/* ── Preview Modal ── */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(10,20,40,0.7)" }}
+          onClick={closePreview}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ width: "min(860px, 95vw)", height: "min(700px, 92vh)" }}
+            onClick={(e) => e.stopPropagation()}>
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0" style={{ borderColor: "#dce2ec" }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-2xl flex-shrink-0">{fileIcon(previewDoc.mime_type)}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold font-sans truncate" style={{ color: "#1a2e4a" }}>{previewDoc.file_name}</p>
+                  {previewDoc.file_size && (
+                    <p className="text-xs font-sans" style={{ color: "#8e9ab0" }}>{formatSize(previewDoc.file_size)}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <button
+                  onClick={(e) => handleDownload(previewDoc, e)}
+                  className="flex items-center gap-1.5 text-sm font-semibold font-sans px-3 py-1.5 rounded-lg border"
+                  style={{ color: "#1a2e4a", borderColor: "#dce2ec" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </button>
+                <button onClick={closePreview}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  style={{ color: "#8e9ab0" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Preview body */}
+            <div className="flex-1 overflow-hidden bg-gray-50 relative">
+              {previewLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2AADAD" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    <p className="text-sm font-sans" style={{ color: "#8e9ab0" }}>Loading preview…</p>
+                  </div>
+                </div>
+              )}
+
+              {!previewLoading && previewUrl && previewDoc.mime_type === "application/pdf" && (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full"
+                  style={{ border: "none" }}
+                  title={previewDoc.file_name}
+                />
+              )}
+
+              {!previewLoading && previewUrl && previewDoc.mime_type?.startsWith("image/") && (
+                <div className="w-full h-full flex items-center justify-center p-6">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt={previewDoc.file_name}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow"
+                  />
+                </div>
+              )}
+
+              {!previewLoading && previewUrl &&
+                previewDoc.mime_type !== "application/pdf" &&
+                !previewDoc.mime_type?.startsWith("image/") && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center px-6">
+                    <div className="text-5xl mb-4">{fileIcon(previewDoc.mime_type)}</div>
+                    <p className="text-base font-semibold font-sans mb-2" style={{ color: "#1a2e4a" }}>
+                      Preview not available for this file type
+                    </p>
+                    <p className="text-sm font-sans mb-5" style={{ color: "#8e9ab0" }}>
+                      Click Download to open this file on your device.
+                    </p>
+                    <button onClick={(e) => handleDownload(previewDoc, e)}
+                      className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold font-sans"
+                      style={{ backgroundColor: "#1a2e4a" }}>
+                      Download File
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!previewLoading && !previewUrl && (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-sm font-sans" style={{ color: "#c0392b" }}>Failed to load preview.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

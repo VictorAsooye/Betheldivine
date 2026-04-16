@@ -37,6 +37,32 @@ export async function GET(
   return NextResponse.json({ url: signed.signedUrl, file_name: doc.file_name });
 }
 
+// PATCH — rename document (file_name, category, description)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json();
+  const updates: Record<string, string> = {};
+  if (body.file_name) updates.file_name = body.file_name;
+  if (body.category) updates.category = body.category;
+  if ("description" in body) updates.description = body.description;
+
+  const { data, error } = await supabase
+    .from("documents")
+    .update(updates)
+    .eq("id", params.id)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 // DELETE — remove document + storage file
 export async function DELETE(
   _request: NextRequest,
