@@ -1,5 +1,5 @@
-import FormBuilderPage from "@/components/FormBuilderPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <FormBuilderPage role="owner" />;
+  redirect("/owner");
 }
