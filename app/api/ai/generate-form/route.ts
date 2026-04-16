@@ -48,7 +48,7 @@ Generate a complete, professional form with all relevant fields.`;
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
   });
@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
     try {
       schema = JSON.parse(raw);
     } catch {
-      // Retry once
+      // If truncated mid-JSON, try closing it before retrying
+      // (e.g. max_tokens hit mid-string — bump max_tokens if this keeps happening)
+      console.error("[AI] JSON parse failed, raw length:", raw.length);
       const raw2 = await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
       const cleaned = raw2.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
       schema = JSON.parse(cleaned);
