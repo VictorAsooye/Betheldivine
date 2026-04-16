@@ -78,6 +78,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
   // Inline rename state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
   // Preview modal state
@@ -142,6 +143,7 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
     const trimmed = editingName.trim();
     if (!trimmed) { setEditingId(null); return; }
     setEditingId(null);
+    setRenameError(null);
     const res = await fetch(`/api/documents/${docId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -150,6 +152,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
     if (res.ok) {
       setDocs((prev) => prev.map((d) => d.id === docId ? { ...d, file_name: trimmed } : d));
       if (previewDoc?.id === docId) setPreviewDoc((p) => p ? { ...p, file_name: trimmed } : p);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setRenameError(err.error ?? "Failed to rename. Please try again.");
     }
   }
 
@@ -240,6 +245,14 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
             style={{ backgroundColor: "#f0faf5", border: "1px solid #a7dfc4", color: "#2d8a5e" }}>
             ✓ Document uploaded successfully.
             <button onClick={() => setUploadSuccess(false)} className="text-xs underline ml-3">Dismiss</button>
+          </div>
+        )}
+
+        {renameError && (
+          <div className="mb-4 px-4 py-3 rounded-lg text-sm font-sans flex items-center justify-between"
+            style={{ backgroundColor: "#fef2f2", border: "1px solid #fca5a5", color: "#c0392b" }}>
+            {renameError}
+            <button onClick={() => setRenameError(null)} className="text-xs underline ml-3">Dismiss</button>
           </div>
         )}
 
