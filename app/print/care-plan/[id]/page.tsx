@@ -124,8 +124,37 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
   );
 
   if (notFound || !data) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "system-ui" }}>
-      <p style={{ color: "#c0392b" }}>Submission not found.</p>
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      minHeight: "100vh", fontFamily: "system-ui", backgroundColor: "#f8f9fb", gap: "16px",
+    }}>
+      <div style={{
+        width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "#fef2f2",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <div style={{ textAlign: "center" }}>
+        <h2 style={{ margin: "0 0 6px", fontSize: "18px", fontWeight: 700, color: "#1a2e4a" }}>
+          Form Not Found
+        </h2>
+        <p style={{ margin: 0, fontSize: "13px", color: "#6b7280", maxWidth: "320px", lineHeight: "1.5" }}>
+          This care plan could not be loaded. It may have been deleted, or the link may be invalid.
+        </p>
+      </div>
+      <button
+        onClick={() => window.close()}
+        style={{
+          backgroundColor: "#2AADAD", color: "#fff", border: "none", borderRadius: "7px",
+          padding: "9px 20px", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+        }}
+      >
+        Close Tab
+      </button>
     </div>
   );
 

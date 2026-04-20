@@ -17,10 +17,22 @@ export async function GET(
 
   const { data, error } = await service
     .from("static_form_submissions")
-    .select("*, profiles(full_name, email)")
+    .select("*")
     .eq("id", params.id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(data);
+
+  // Fetch the submitter's profile separately (FK is to auth.users, not profiles)
+  let profile: { full_name?: string; email?: string } | null = null;
+  if (data.submitted_by) {
+    const { data: p } = await service
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", data.submitted_by)
+      .single();
+    profile = p ?? null;
+  }
+
+  return NextResponse.json({ ...data, profiles: profile });
 }
