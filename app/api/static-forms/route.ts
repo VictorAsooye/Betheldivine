@@ -74,9 +74,7 @@ export async function GET(req: NextRequest) {
   const service = getServiceClient();
   let query = service
     .from("static_form_submissions")
-    .select(
-      `id, form_type, data, submitted_by, created_at, profiles:submitted_by ( full_name, email )`
-    )
+    .select("id, form_type, data, submitted_by, created_at")
     .order("created_at", { ascending: false });
 
   if (form_type) {
@@ -89,5 +87,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(rows ?? []);
+  if (!rows || rows.length === 0) {
+    return NextResponse.json([]);
+  }
+
+  // Fetch profiles for all submitters in one query
+  const submitterIds = Array.from(new Set(rows.map((r) => r.submitted_by).filter(Boolean)));
+  const { data: profiles } = await service
+    .from("profiles")
+    .select("id, full_name, email")
+    .in("id", submitterIds);
+
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  const enriched = rows.map((row) => ({
+    ...row,
+    profiles: profileMap.get(row.submitted_by) ?? null,
+  }));
+
+  return NextResponse.json(enriched);
 }
