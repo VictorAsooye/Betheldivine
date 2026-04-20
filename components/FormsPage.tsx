@@ -22,10 +22,11 @@ interface Props {
 }
 
 export default function FormsPage({ role }: Props) {
-  const [view, setView] = useState<"list" | "form" | "submissions">("list");
+  const [view, setView] = useState<"list" | "form" | "success" | "submissions">("list");
   const [selectedForm, setSelectedForm] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
@@ -46,8 +47,10 @@ export default function FormsPage({ role }: Props) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { error?: string }).error ?? "Submission failed");
       }
+      const body = await res.json() as { success?: boolean; id?: string };
+      setSubmissionId(body.id ?? null);
       setSubmitted(true);
-      setView("list");
+      setView("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -90,6 +93,8 @@ export default function FormsPage({ role }: Props) {
   function goBack() {
     setView("list");
     setError(null);
+    setSubmitted(false);
+    setSubmissionId(null);
   }
 
   function toggleExpand(id: string) {
@@ -134,29 +139,97 @@ export default function FormsPage({ role }: Props) {
       />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
-        {/* Success banner */}
-        {submitted && view === "list" && (
-          <div
-            style={{
-              backgroundColor: "#f0fdf4",
-              border: "1px solid #86efac",
-              borderRadius: "6px",
-              padding: "12px 16px",
-              marginBottom: "20px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ color: "#166534", fontSize: "13px", fontFamily: "var(--font-source-sans), system-ui, sans-serif" }}>
-              Care plan submitted successfully.
-            </span>
-            <button
-              onClick={() => setSubmitted(false)}
-              style={{ background: "none", border: "none", color: "#166534", cursor: "pointer", fontSize: "16px" }}
+        {/* SUCCESS VIEW */}
+        {view === "success" && (
+          <div style={{ maxWidth: "480px", margin: "40px auto", textAlign: "center" }}>
+            {/* Checkmark circle */}
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                borderRadius: "50%",
+                backgroundColor: "#e8f8f8",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 20px",
+              }}
             >
-              ×
-            </button>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+
+            <h2
+              style={{
+                fontSize: "22px",
+                fontWeight: 700,
+                color: NAVY,
+                fontFamily: "var(--font-lora), Georgia, serif",
+                marginBottom: "8px",
+              }}
+            >
+              Form Submitted
+            </h2>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "#5a6a82",
+                lineHeight: "1.6",
+                marginBottom: "28px",
+                fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+              }}
+            >
+              The Client Care Plan has been saved successfully. You can download a PDF copy below.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+              {submissionId && (
+                <a
+                  href={`/print/care-plan/${submissionId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    backgroundColor: TEAL,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "7px",
+                    padding: "11px 24px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                  Download PDF
+                </a>
+              )}
+
+              <button
+                onClick={goBack}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: TEAL,
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+                  padding: "4px 0",
+                }}
+              >
+                ← Back to Forms
+              </button>
+            </div>
           </div>
         )}
 
@@ -351,49 +424,84 @@ export default function FormsPage({ role }: Props) {
                       backgroundColor: "#fff",
                     }}
                   >
-                    <button
-                      onClick={() => toggleExpand(sub.id)}
+                    <div
                       style={{
-                        width: "100%",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                         padding: "14px 18px",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        textAlign: "left",
                       }}
                     >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: NAVY,
-                            fontFamily: "var(--font-source-sans), system-ui, sans-serif",
-                          }}
-                        >
-                          {submitterName}
-                        </div>
-                        <div style={{ fontSize: "11px", color: "#8e9ab0", marginTop: "2px" }}>
-                          {formatDate(sub.created_at)}
-                        </div>
-                      </div>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#8e9ab0"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}
+                      <button
+                        onClick={() => toggleExpand(sub.id)}
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          padding: 0,
+                        }}
                       >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              color: NAVY,
+                              fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+                            }}
+                          >
+                            {submitterName}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#8e9ab0", marginTop: "2px" }}>
+                            {formatDate(sub.created_at)}
+                          </div>
+                        </div>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#8e9ab0"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", marginRight: "16px" }}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {/* Download PDF link */}
+                      <a
+                        href={`/print/care-plan/${sub.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Download PDF"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          color: TEAL,
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                          fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 6 2 18 2 18 9" />
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                          <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                        PDF
+                      </a>
+                    </div>
 
                     {expanded && (
                       <div
