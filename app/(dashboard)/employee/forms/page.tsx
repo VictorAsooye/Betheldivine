@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import FormsPage from "@/components/FormsPage";
 
 export default function Page() {
-  redirect("/employee");
+  return <FormsPage role="employee" />;
 }
