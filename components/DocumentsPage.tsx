@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
+import HowToGuides from "@/components/HowToGuides";
 
 interface Folder {
   id: string;
@@ -293,6 +294,9 @@ export default function DocumentsPage({ role }: DocumentsPageProps) {
         {/* ── Root view: folders + unorganized ── */}
         {!currentFolder && (
           <>
+            {/* How To Guides built-in library */}
+            <HowToGuides role={role} />
+
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold font-sans uppercase tracking-wide" style={{ color: "#8e9ab0" }}>Libraries</h2>
