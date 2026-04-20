@@ -13,6 +13,22 @@ const GOLD = "#c8991a";
 const GRAY = "#8e9ab0";
 const BORDER = "#dce2ec";
 const TEAL_LIGHT = "#e8f8f8";
+const ERROR_RED = "#dc2626";
+const ERROR_BG = "#fef2f2";
+
+// Fields that MUST be filled before submission
+const REQUIRED_FIELDS: Record<string, string> = {
+  client_full_name: "Client Full Name",
+  date_of_birth: "Date of Birth",
+  primary_phone: "Primary Phone",
+  address: "Address",
+  assessment_date: "Date of Assessment",
+  care_plan_start_date: "Care Plan Start Date",
+  primary_diagnosis: "Primary Diagnosis",
+  client_signature: "Client / Legal Guardian Signature",
+  client_signature_date: "Signature Date",
+  coordinator_signature: "Care Coordinator / Supervisor Signature",
+};
 
 const labelStyle: React.CSSProperties = {
   fontSize: "11px",
@@ -25,17 +41,19 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: "0.4px",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "transparent",
-  border: "none",
-  borderBottom: `1px solid ${BORDER}`,
-  outline: "none",
-  fontSize: "13px",
-  color: NAVY,
-  padding: "4px 0 6px",
-  fontFamily: "var(--font-source-sans), system-ui, sans-serif",
-};
+function inputStyleFor(hasError: boolean): React.CSSProperties {
+  return {
+    width: "100%",
+    background: hasError ? ERROR_BG : "transparent",
+    border: "none",
+    borderBottom: `1.5px solid ${hasError ? ERROR_RED : BORDER}`,
+    outline: "none",
+    fontSize: "13px",
+    color: NAVY,
+    padding: "4px 0 6px",
+    fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+  };
+}
 
 const textareaStyle: React.CSSProperties = {
   width: "100%",
@@ -90,17 +108,32 @@ function SectionHeader({ number, title }: { number: number; title: string }) {
 
 function Field({
   label,
+  fieldKey,
   children,
   style,
+  error,
 }: {
   label: string;
+  fieldKey?: string;
   children: React.ReactNode;
   style?: React.CSSProperties;
+  error?: string;
 }) {
+  const isRequired = fieldKey ? fieldKey in REQUIRED_FIELDS : false;
   return (
     <div style={style}>
-      <label style={labelStyle}>{label}</label>
+      <label style={labelStyle}>
+        {label}
+        {isRequired && (
+          <span style={{ color: ERROR_RED, marginLeft: "3px" }}>*</span>
+        )}
+      </label>
       {children}
+      {error && (
+        <span style={{ fontSize: "10px", color: ERROR_RED, marginTop: "3px", display: "block" }}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -152,9 +185,19 @@ type FormData = Record<string, unknown>;
 
 export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
   const [formData, setFormData] = useState<FormData>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showErrorSummary, setShowErrorSummary] = useState(false);
 
   function set(key: string, value: unknown) {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    // Clear error for this field as soon as user fills it
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   function get(key: string): string {
@@ -181,8 +224,31 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
     set(`service_${serviceKey}_days`, next);
   }
 
+  function validate(): boolean {
+    const newErrors: Record<string, string> = {};
+    for (const [key, label] of Object.entries(REQUIRED_FIELDS)) {
+      const val = formData[key];
+      if (!val || (typeof val === "string" && val.trim() === "")) {
+        newErrors[key] = `${label} is required`;
+      }
+    }
+    setErrors(newErrors);
+    setShowErrorSummary(Object.keys(newErrors).length > 0);
+
+    if (Object.keys(newErrors).length > 0) {
+      // Scroll to first error
+      setTimeout(() => {
+        const el = document.querySelector("[data-error='true']");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+      return false;
+    }
+    return true;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
     await onSubmit(formData);
   }
 
@@ -232,17 +298,58 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      {/* Required fields note */}
+      <div style={{ padding: "10px 24px", backgroundColor: "#fafbfd", borderBottom: `1px solid ${BORDER}` }}>
+        <span style={{ fontSize: "11px", color: GRAY, fontFamily: "var(--font-source-sans), system-ui, sans-serif" }}>
+          Fields marked <span style={{ color: ERROR_RED, fontWeight: 700 }}>*</span> are required
+        </span>
+      </div>
+
+      {/* Error summary banner */}
+      {showErrorSummary && (
+        <div
+          data-error="true"
+          style={{
+            margin: "16px 24px 0",
+            backgroundColor: ERROR_BG,
+            border: `1px solid #fca5a5`,
+            borderRadius: "6px",
+            padding: "12px 16px",
+          }}
+        >
+          <div style={{ fontWeight: 700, color: ERROR_RED, fontSize: "12px", marginBottom: "6px" }}>
+            Please complete the following required fields:
+          </div>
+          <ul style={{ margin: 0, paddingLeft: "16px" }}>
+            {Object.values(errors).map((msg, i) => (
+              <li key={i} style={{ fontSize: "12px", color: ERROR_RED, marginBottom: "2px" }}>
+                {msg}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
         {/* Section 1 — Client Information */}
         <div style={sectionPad}>
           <SectionHeader number={1} title="Client Information" />
 
           <div style={rowGap}>
-            <Field label="Client Full Name" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("client_full_name")} onChange={(e) => set("client_full_name", e.target.value)} />
+            <Field label="Client Full Name" fieldKey="client_full_name" style={{ flex: 1, minWidth: "200px" }} error={errors.client_full_name}>
+              <input
+                style={inputStyleFor(!!errors.client_full_name)}
+                value={get("client_full_name")}
+                onChange={(e) => set("client_full_name", e.target.value)}
+              />
             </Field>
-            <Field label="Date of Birth" style={{ width: "128px" }}>
-              <input type="date" style={inputStyle} value={get("date_of_birth")} onChange={(e) => set("date_of_birth", e.target.value)} />
+            <Field label="Date of Birth" fieldKey="date_of_birth" style={{ width: "128px" }} error={errors.date_of_birth}>
+              <input
+                type="date"
+                style={inputStyleFor(!!errors.date_of_birth)}
+                value={get("date_of_birth")}
+                onChange={(e) => set("date_of_birth", e.target.value)}
+              />
             </Field>
             <Field label="Gender" style={{ width: "112px" }}>
               <select style={selectStyle} value={get("gender")} onChange={(e) => set("gender", e.target.value)}>
@@ -254,52 +361,71 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
               </select>
             </Field>
             <Field label="Medicaid/Medicare #" style={{ width: "192px" }}>
-              <input style={inputStyle} value={get("medicaid_number")} onChange={(e) => set("medicaid_number", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("medicaid_number")} onChange={(e) => set("medicaid_number", e.target.value)} />
             </Field>
           </div>
 
           <div style={rowGap}>
-            <Field label="Address" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("address")} onChange={(e) => set("address", e.target.value)} />
+            <Field label="Address" fieldKey="address" style={{ flex: 1, minWidth: "200px" }} error={errors.address}>
+              <input
+                style={inputStyleFor(!!errors.address)}
+                value={get("address")}
+                onChange={(e) => set("address", e.target.value)}
+              />
             </Field>
             <Field label="City" style={{ width: "160px" }}>
-              <input style={inputStyle} value={get("city")} onChange={(e) => set("city", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("city")} onChange={(e) => set("city", e.target.value)} />
             </Field>
             <Field label="State" style={{ width: "80px" }}>
-              <input style={inputStyle} maxLength={2} value={get("state")} onChange={(e) => set("state", e.target.value)} />
+              <input style={inputStyleFor(false)} maxLength={2} value={get("state")} onChange={(e) => set("state", e.target.value)} />
             </Field>
             <Field label="Zip Code" style={{ width: "112px" }}>
-              <input style={inputStyle} value={get("zip_code")} onChange={(e) => set("zip_code", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("zip_code")} onChange={(e) => set("zip_code", e.target.value)} />
             </Field>
           </div>
 
           <div style={rowGap}>
-            <Field label="Primary Phone" style={{ width: "160px" }}>
-              <input style={inputStyle} type="tel" value={get("primary_phone")} onChange={(e) => set("primary_phone", e.target.value)} />
+            <Field label="Primary Phone" fieldKey="primary_phone" style={{ width: "160px" }} error={errors.primary_phone}>
+              <input
+                style={inputStyleFor(!!errors.primary_phone)}
+                type="tel"
+                value={get("primary_phone")}
+                onChange={(e) => set("primary_phone", e.target.value)}
+              />
             </Field>
             <Field label="Emergency Contact Name" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("emergency_contact_name")} onChange={(e) => set("emergency_contact_name", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("emergency_contact_name")} onChange={(e) => set("emergency_contact_name", e.target.value)} />
             </Field>
             <Field label="Relationship" style={{ width: "160px" }}>
-              <input style={inputStyle} value={get("emergency_relationship")} onChange={(e) => set("emergency_relationship", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("emergency_relationship")} onChange={(e) => set("emergency_relationship", e.target.value)} />
             </Field>
             <Field label="Emergency Phone" style={{ width: "160px" }}>
-              <input style={inputStyle} type="tel" value={get("emergency_phone")} onChange={(e) => set("emergency_phone", e.target.value)} />
+              <input style={inputStyleFor(false)} type="tel" value={get("emergency_phone")} onChange={(e) => set("emergency_phone", e.target.value)} />
             </Field>
           </div>
 
           <div style={rowGap}>
             <Field label="Primary Physician / Doctor" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("physician_name")} onChange={(e) => set("physician_name", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("physician_name")} onChange={(e) => set("physician_name", e.target.value)} />
             </Field>
             <Field label="Physician Phone" style={{ width: "160px" }}>
-              <input style={inputStyle} type="tel" value={get("physician_phone")} onChange={(e) => set("physician_phone", e.target.value)} />
+              <input style={inputStyleFor(false)} type="tel" value={get("physician_phone")} onChange={(e) => set("physician_phone", e.target.value)} />
             </Field>
-            <Field label="Date of Assessment" style={{ width: "160px" }}>
-              <input type="date" style={inputStyle} value={get("assessment_date")} onChange={(e) => set("assessment_date", e.target.value)} />
+            <Field label="Date of Assessment" fieldKey="assessment_date" style={{ width: "160px" }} error={errors.assessment_date}>
+              <input
+                type="date"
+                style={inputStyleFor(!!errors.assessment_date)}
+                value={get("assessment_date")}
+                onChange={(e) => set("assessment_date", e.target.value)}
+              />
             </Field>
-            <Field label="Care Plan Start Date" style={{ width: "160px" }}>
-              <input type="date" style={inputStyle} value={get("care_plan_start_date")} onChange={(e) => set("care_plan_start_date", e.target.value)} />
+            <Field label="Care Plan Start Date" fieldKey="care_plan_start_date" style={{ width: "160px" }} error={errors.care_plan_start_date}>
+              <input
+                type="date"
+                style={inputStyleFor(!!errors.care_plan_start_date)}
+                value={get("care_plan_start_date")}
+                onChange={(e) => set("care_plan_start_date", e.target.value)}
+              />
             </Field>
           </div>
         </div>
@@ -309,14 +435,18 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
           <SectionHeader number={2} title="Primary Diagnoses & Medical History" />
 
           <div style={rowGap}>
-            <Field label="Primary Diagnosis" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("primary_diagnosis")} onChange={(e) => set("primary_diagnosis", e.target.value)} />
+            <Field label="Primary Diagnosis" fieldKey="primary_diagnosis" style={{ flex: 1, minWidth: "200px" }} error={errors.primary_diagnosis}>
+              <input
+                style={inputStyleFor(!!errors.primary_diagnosis)}
+                value={get("primary_diagnosis")}
+                onChange={(e) => set("primary_diagnosis", e.target.value)}
+              />
             </Field>
             <Field label="ICD-10 Code" style={{ width: "144px" }}>
-              <input style={inputStyle} value={get("icd10_code")} onChange={(e) => set("icd10_code", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("icd10_code")} onChange={(e) => set("icd10_code", e.target.value)} />
             </Field>
             <Field label="Secondary Diagnosis" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("secondary_diagnosis")} onChange={(e) => set("secondary_diagnosis", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("secondary_diagnosis")} onChange={(e) => set("secondary_diagnosis", e.target.value)} />
             </Field>
           </div>
 
@@ -394,7 +524,7 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
             <div key={n} style={{ ...rowGap, alignItems: "flex-end" }}>
               <Field label={`Goal ${n}`} style={{ flex: 1, minWidth: "200px" }}>
                 <input
-                  style={inputStyle}
+                  style={inputStyleFor(false)}
                   value={get(`goal_${n}`)}
                   onChange={(e) => set(`goal_${n}`, e.target.value)}
                 />
@@ -402,7 +532,7 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
               <Field label="Target Date" style={{ width: "160px" }}>
                 <input
                   type="date"
-                  style={inputStyle}
+                  style={inputStyleFor(false)}
                   value={get(`goal_${n}_target_date`)}
                   onChange={(e) => set(`goal_${n}_target_date`, e.target.value)}
                 />
@@ -540,13 +670,13 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
 
           <div style={rowGap}>
             <Field label="Preferred Language" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("preferred_language")} onChange={(e) => set("preferred_language", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("preferred_language")} onChange={(e) => set("preferred_language", e.target.value)} />
             </Field>
             <Field label="Preferred Name / Nickname" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("preferred_name")} onChange={(e) => set("preferred_name", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("preferred_name")} onChange={(e) => set("preferred_name", e.target.value)} />
             </Field>
             <Field label="Religious / Cultural Preferences" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("cultural_preferences")} onChange={(e) => set("cultural_preferences", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("cultural_preferences")} onChange={(e) => set("cultural_preferences", e.target.value)} />
             </Field>
           </div>
 
@@ -598,38 +728,51 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
           </p>
 
           <div style={rowGap}>
-            <Field label="Client / Legal Guardian Signature" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("client_signature")} onChange={(e) => set("client_signature", e.target.value)} />
+            <Field label="Client / Legal Guardian Signature" fieldKey="client_signature" style={{ flex: 1, minWidth: "200px" }} error={errors.client_signature}>
+              <input
+                style={inputStyleFor(!!errors.client_signature)}
+                value={get("client_signature")}
+                onChange={(e) => set("client_signature", e.target.value)}
+              />
             </Field>
-            <Field label="Date" style={{ width: "160px" }}>
-              <input type="date" style={inputStyle} value={get("client_signature_date")} onChange={(e) => set("client_signature_date", e.target.value)} />
+            <Field label="Date" fieldKey="client_signature_date" style={{ width: "160px" }} error={errors.client_signature_date}>
+              <input
+                type="date"
+                style={inputStyleFor(!!errors.client_signature_date)}
+                value={get("client_signature_date")}
+                onChange={(e) => set("client_signature_date", e.target.value)}
+              />
             </Field>
             <Field label="Relationship if Guardian" style={{ width: "192px" }}>
-              <input style={inputStyle} value={get("guardian_relationship")} onChange={(e) => set("guardian_relationship", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("guardian_relationship")} onChange={(e) => set("guardian_relationship", e.target.value)} />
             </Field>
           </div>
 
           <div style={rowGap}>
-            <Field label="Care Coordinator / Supervisor Signature" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("coordinator_signature")} onChange={(e) => set("coordinator_signature", e.target.value)} />
+            <Field label="Care Coordinator / Supervisor Signature" fieldKey="coordinator_signature" style={{ flex: 1, minWidth: "200px" }} error={errors.coordinator_signature}>
+              <input
+                style={inputStyleFor(!!errors.coordinator_signature)}
+                value={get("coordinator_signature")}
+                onChange={(e) => set("coordinator_signature", e.target.value)}
+              />
             </Field>
             <Field label="Printed Name" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("coordinator_printed_name")} onChange={(e) => set("coordinator_printed_name", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("coordinator_printed_name")} onChange={(e) => set("coordinator_printed_name", e.target.value)} />
             </Field>
             <Field label="Date" style={{ width: "160px" }}>
-              <input type="date" style={inputStyle} value={get("coordinator_signature_date")} onChange={(e) => set("coordinator_signature_date", e.target.value)} />
+              <input type="date" style={inputStyleFor(false)} value={get("coordinator_signature_date")} onChange={(e) => set("coordinator_signature_date", e.target.value)} />
             </Field>
           </div>
 
           <div style={rowGap}>
             <Field label="Caregiver / Aide Signature" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyle} value={get("caregiver_signature")} onChange={(e) => set("caregiver_signature", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("caregiver_signature")} onChange={(e) => set("caregiver_signature", e.target.value)} />
             </Field>
             <Field label="Printed Name" style={{ flex: 1, minWidth: "160px" }}>
-              <input style={inputStyle} value={get("caregiver_printed_name")} onChange={(e) => set("caregiver_printed_name", e.target.value)} />
+              <input style={inputStyleFor(false)} value={get("caregiver_printed_name")} onChange={(e) => set("caregiver_printed_name", e.target.value)} />
             </Field>
             <Field label="Date" style={{ width: "160px" }}>
-              <input type="date" style={inputStyle} value={get("caregiver_signature_date")} onChange={(e) => set("caregiver_signature_date", e.target.value)} />
+              <input type="date" style={inputStyleFor(false)} value={get("caregiver_signature_date")} onChange={(e) => set("caregiver_signature_date", e.target.value)} />
             </Field>
           </div>
         </div>
