@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email/send";
+import { carePlanSubmittedTemplate } from "@/lib/email/templates";
 
 function getServiceClient() {
   return createServiceClient(
@@ -42,6 +44,34 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Fetch submitter's name for the email
+  const { data: profile } = await service
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", user.id)
+    .single();
+
+  const submittedBy = profile?.full_name ?? profile?.email ?? "Unknown";
+  const submittedAt = new Date().toLocaleString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+
+  // Send email notification — fire and forget (don't block the response)
+  const emailTemplate = carePlanSubmittedTemplate({
+    formData: data as Record<string, unknown>,
+    submissionId: inserted.id,
+    submittedBy,
+    submittedAt,
+  });
+
+  sendEmail({
+    to: "betheldivinehealthcare@gmail.com",
+    subject: emailTemplate.subject,
+    html: emailTemplate.html,
+    actorId: user.id,
+  }).catch((err) => console.error("[static-forms] Email send failed:", err));
 
   return NextResponse.json({ success: true, id: inserted.id }, { status: 201 });
 }

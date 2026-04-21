@@ -372,6 +372,148 @@ export function roleAssignedOwnerNotificationTemplate(data: {
   };
 }
 
+// ── Care Plan Submitted ──────────────────────────────────────────────────────
+
+const CP_ADL_TASKS = [
+  { key: "bathing", label: "Bathing" },
+  { key: "dressing", label: "Dressing" },
+  { key: "grooming", label: "Grooming / Hygiene" },
+  { key: "toileting", label: "Toileting" },
+  { key: "transfers", label: "Transfers / Mobility" },
+  { key: "ambulation", label: "Ambulation / Walking" },
+  { key: "meal_prep", label: "Meal Preparation" },
+  { key: "feeding", label: "Feeding" },
+  { key: "medication", label: "Medication Reminders" },
+  { key: "housekeeping", label: "Housekeeping" },
+  { key: "laundry", label: "Laundry" },
+  { key: "shopping", label: "Shopping / Errands" },
+];
+
+const CP_SERVICE_TASKS = [
+  { key: "personal_care", label: "Personal Care / Hygiene" },
+  { key: "companionship", label: "Companionship" },
+  { key: "medication_reminders", label: "Medication Reminders" },
+  { key: "meal_preparation", label: "Meal Preparation" },
+  { key: "light_housekeeping", label: "Light Housekeeping" },
+  { key: "transportation", label: "Transportation / Errands" },
+];
+
+function cpVal(data: Record<string, unknown>, key: string): string {
+  const v = data[key];
+  if (v === undefined || v === null || v === "") return "—";
+  return String(v);
+}
+
+function cpRow(label: string, value: string, shade = false): string {
+  return `<tr style="background:${shade ? "#f7f9fc" : "#fff"};">
+    <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:38%;border-bottom:1px solid #dce2ec;vertical-align:top;">${label}</td>
+    <td style="padding:7px 10px;font-size:13px;color:#1a2e4a;border-bottom:1px solid #dce2ec;">${value}</td>
+  </tr>`;
+}
+
+function cpSection(title: string): string {
+  return `<tr><td colspan="2" style="background:#2AADAD;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;padding:7px 10px;">${title}</td></tr>`;
+}
+
+export function carePlanSubmittedTemplate(data: {
+  formData: Record<string, unknown>;
+  submissionId: string;
+  submittedBy: string;
+  submittedAt: string;
+}) {
+  const { formData, submissionId, submittedBy, submittedAt } = data;
+  const clientName = cpVal(formData, "client_full_name");
+  const printUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://betheldivine.com"}/print/care-plan/${submissionId}`;
+
+  const safetyFlags = (formData["safety_flags"] as string[] | undefined) ?? [];
+  const safetyStr = safetyFlags.length > 0 ? safetyFlags.join(", ") : "None indicated";
+
+  const adlRows = CP_ADL_TASKS.map((t, i) =>
+    cpRow(t.label, cpVal(formData, `adl_${t.key}`), i % 2 !== 0)
+  ).join("");
+
+  const serviceRows = CP_SERVICE_TASKS.map((s, i) => {
+    const hours = cpVal(formData, `service_${s.key}_hours`);
+    const days = (formData[`service_${s.key}_days`] as string[] | undefined) ?? [];
+    return cpRow(s.label, `${hours !== "—" ? hours + " hrs/visit" : "—"} · ${days.length ? days.join(", ") : "—"}`, i % 2 !== 0);
+  }).join("");
+
+  return {
+    subject: `New Care Plan Submitted — ${clientName}`,
+    html: branded(`
+      ${h1("New Client Care Plan Submitted")}
+      ${p(`A care plan has been submitted for <strong>${clientName}</strong> through the Bethel Divine portal.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
+        <tr>
+          <td style="padding:6px 0;color:#8e9ab0;width:140px;">Submitted by</td>
+          <td style="padding:6px 0;font-weight:600;color:#1a2e4a;">${submittedBy}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#8e9ab0;">Date &amp; Time</td>
+          <td style="padding:6px 0;color:#1a2e4a;">${submittedAt}</td>
+        </tr>
+      </table>
+      <div style="margin:20px 0;">
+        <a href="${printUrl}" style="display:inline-block;background:#2AADAD;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 28px;border-radius:8px;">
+          ⬇&nbsp; View &amp; Download PDF
+        </a>
+      </div>
+      ${divider()}
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">
+        ${cpSection("1. Client Information")}
+        ${cpRow("Client Full Name", cpVal(formData, "client_full_name"))}
+        ${cpRow("Date of Birth", cpVal(formData, "date_of_birth"), true)}
+        ${cpRow("Gender", cpVal(formData, "gender"))}
+        ${cpRow("Medicaid / Medicare #", cpVal(formData, "medicaid_number"), true)}
+        ${cpRow("Address", `${cpVal(formData, "address")}, ${cpVal(formData, "city")}, ${cpVal(formData, "state")} ${cpVal(formData, "zip_code")}`)}
+        ${cpRow("Primary Phone", cpVal(formData, "primary_phone"), true)}
+        ${cpRow("Emergency Contact", `${cpVal(formData, "emergency_contact_name")} (${cpVal(formData, "emergency_relationship")}) — ${cpVal(formData, "emergency_phone")}`)}
+        ${cpRow("Primary Physician", `${cpVal(formData, "physician_name")} — ${cpVal(formData, "physician_phone")}`, true)}
+        ${cpRow("Date of Assessment", cpVal(formData, "assessment_date"))}
+        ${cpRow("Care Plan Start Date", cpVal(formData, "care_plan_start_date"), true)}
+
+        ${cpSection("2. Diagnoses & Medical History")}
+        ${cpRow("Primary Diagnosis", `${cpVal(formData, "primary_diagnosis")} (${cpVal(formData, "icd10_code")})`)}
+        ${cpRow("Secondary Diagnosis", cpVal(formData, "secondary_diagnosis"), true)}
+        ${cpRow("Known Allergies", cpVal(formData, "known_allergies"))}
+        ${cpRow("Medical / Surgical History", cpVal(formData, "medical_history"), true)}
+
+        ${cpSection("3. Activities of Daily Living")}
+        ${adlRows}
+
+        ${cpSection("4. Client Care Goals")}
+        ${[1, 2, 3].map((n, i) => cpRow(`Goal ${n}`, `${cpVal(formData, `goal_${n}`)} — ${cpVal(formData, `goal_${n}_target_date`)} (${cpVal(formData, `goal_${n}_status`)})`, i % 2 !== 0)).join("")}
+
+        ${cpSection("5. Scheduled Services")}
+        ${serviceRows}
+
+        ${cpSection("6. Safety Considerations")}
+        ${cpRow("Safety Flags", safetyStr)}
+        ${cpRow("Additional Safety Notes", cpVal(formData, "safety_notes"), true)}
+
+        ${cpSection("7. Communication & Preferences")}
+        ${cpRow("Preferred Language", cpVal(formData, "preferred_language"))}
+        ${cpRow("Preferred Name", cpVal(formData, "preferred_name"), true)}
+        ${cpRow("Religious / Cultural Preferences", cpVal(formData, "cultural_preferences"))}
+        ${cpRow("Likes / Preferences", cpVal(formData, "likes_preferences"), true)}
+        ${cpRow("Dislikes / Triggers", cpVal(formData, "dislikes_triggers"))}
+
+        ${cpSection("8. Caregiver Notes")}
+        ${cpRow("Notes", cpVal(formData, "caregiver_notes"))}
+
+        ${cpSection("9. Signatures")}
+        ${cpRow("Client / Guardian", `${cpVal(formData, "client_signature")} — ${cpVal(formData, "client_signature_date")}`)}
+        ${cpRow("Care Coordinator", `${cpVal(formData, "coordinator_signature")} (${cpVal(formData, "coordinator_printed_name")}) — ${cpVal(formData, "coordinator_signature_date")}`, true)}
+        ${cpRow("Caregiver / Aide", `${cpVal(formData, "caregiver_signature")} (${cpVal(formData, "caregiver_printed_name")}) — ${cpVal(formData, "caregiver_signature_date")}`)}
+      </table>
+
+      ${divider()}
+      ${muted("This email was automatically generated when a care plan was submitted in the Bethel Divine portal. The full print-ready PDF is available at the link above.")}
+    `),
+  };
+}
+
 export function invoiceTemplate(data: {
   name: string;
   billingMonth: string;
