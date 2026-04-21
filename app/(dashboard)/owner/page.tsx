@@ -2,10 +2,17 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import ActionLink from "@/components/ActionLink";
 import Link from "next/link";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OwnerDashboard() {
   const supabase = await createClient();
+
+  // Use service role so RLS never undercounts — profiles is the source of truth for roles
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -16,13 +23,14 @@ export default async function OwnerDashboard() {
     { count: pendingTimeOff },
     { count: licenseAlertCount },
   ] = await Promise.all([
-    supabase.from("employees").select("*", { count: "exact", head: true }),
-    supabase.from("clients").select("*", { count: "exact", head: true }),
-    supabase.from("shifts").select("*", { count: "exact", head: true })
+    // Count by role in profiles — the single source of truth
+    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
+    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
+    service.from("shifts").select("*", { count: "exact", head: true })
       .gte("scheduled_start", today + "T00:00:00")
       .lte("scheduled_start", today + "T23:59:59"),
-    supabase.from("time_off_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("licenses").select("*", { count: "exact", head: true })
+    service.from("time_off_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    service.from("licenses").select("*", { count: "exact", head: true })
       .in("status", ["expiring_soon", "expired"]),
   ]);
 

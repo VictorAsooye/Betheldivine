@@ -2,16 +2,21 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import ActionLink from "@/components/ActionLink";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export default async function AdminDashboard() {
-  const supabase = await createClient();
+  // Use service role so RLS never filters out rows from the counts
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-  const [{ count: userCount }, { count: activeCount }, { count: pendingCount }, { count: licenseAlertCount }] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pending"),
-    supabase.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
+  const [{ count: userCount }, { count: employeeCount }, { count: clientCount }, { count: pendingCount }, { count: licenseAlertCount }] = await Promise.all([
+    service.from("profiles").select("*", { count: "exact", head: true }),
+    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
+    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
+    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pending"),
+    service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
   ]);
 
   return (
@@ -34,12 +39,22 @@ export default async function AdminDashboard() {
             }
           />
           <StatCard
-            label="Active Users"
-            value={activeCount ?? 0}
+            label="Employees"
+            value={employeeCount ?? 0}
             accent="#2d8a5e"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+              </svg>
+            }
+          />
+          <StatCard
+            label="Clients"
+            value={clientCount ?? 0}
+            accent="#2AADAD"
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
               </svg>
             }
           />
@@ -54,12 +69,12 @@ export default async function AdminDashboard() {
             }
           />
           <StatCard
-            label="Active Forms"
-            value="—"
-            accent="#2AADAD"
+            label="License Alerts"
+            value={licenseAlertCount ?? 0}
+            accent="#c0392b"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             }
           />
