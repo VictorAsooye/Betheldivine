@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
 
   // Generate PDF + send email — fire and forget (don't block the response)
   const clientName = String((data as Record<string, unknown>)["client_full_name"] ?? "client");
+  const safeFileName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const emailTemplate = carePlanSubmittedTemplate({
     formData: data as Record<string, unknown>,
     submissionId: inserted.id,
@@ -69,27 +70,32 @@ export async function POST(req: NextRequest) {
   });
 
   (async () => {
+    // Try to generate PDF — if it fails, still send the email without attachment
+    let pdfBuffer: Buffer | null = null;
     try {
-      const pdfBuffer = await generateCarePlanPdf(
+      pdfBuffer = await generateCarePlanPdf(
         data as Record<string, unknown>,
         submittedBy,
         submittedAt
       );
-      const safeFileName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      console.log("[static-forms] PDF generated successfully, size:", pdfBuffer.length);
+    } catch (pdfErr) {
+      console.error("[static-forms] PDF generation failed (will send email without attachment):", pdfErr);
+    }
+
+    try {
       await sendEmail({
         to: "betheldivinehealthcare@gmail.com",
         subject: emailTemplate.subject,
         html: emailTemplate.html,
         actorId: user.id,
-        attachments: [
-          {
-            filename: `care-plan-${safeFileName}.pdf`,
-            content: pdfBuffer,
-          },
-        ],
+        ...(pdfBuffer
+          ? { attachments: [{ filename: `care-plan-${safeFileName}.pdf`, content: pdfBuffer }] }
+          : {}),
       });
-    } catch (err) {
-      console.error("[static-forms] Email/PDF send failed:", err);
+      console.log("[static-forms] Email sent successfully", pdfBuffer ? "with PDF" : "without PDF (generation failed)");
+    } catch (emailErr) {
+      console.error("[static-forms] Email send failed:", emailErr);
     }
   })();
 
