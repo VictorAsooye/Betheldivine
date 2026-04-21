@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
 import { carePlanSubmittedTemplate } from "@/lib/email/templates";
+import { generateCarePlanPdf } from "@/lib/pdf/care-plan-pdf";
 
 function getServiceClient() {
   return createServiceClient(
@@ -58,7 +59,8 @@ export async function POST(req: NextRequest) {
     hour: "numeric", minute: "2-digit", timeZoneName: "short",
   });
 
-  // Send email notification — fire and forget (don't block the response)
+  // Generate PDF + send email — fire and forget (don't block the response)
+  const clientName = String((data as Record<string, unknown>)["client_full_name"] ?? "client");
   const emailTemplate = carePlanSubmittedTemplate({
     formData: data as Record<string, unknown>,
     submissionId: inserted.id,
@@ -66,12 +68,30 @@ export async function POST(req: NextRequest) {
     submittedAt,
   });
 
-  sendEmail({
-    to: "betheldivinehealthcare@gmail.com",
-    subject: emailTemplate.subject,
-    html: emailTemplate.html,
-    actorId: user.id,
-  }).catch((err) => console.error("[static-forms] Email send failed:", err));
+  (async () => {
+    try {
+      const pdfBuffer = await generateCarePlanPdf(
+        data as Record<string, unknown>,
+        submittedBy,
+        submittedAt
+      );
+      const safeFileName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      await sendEmail({
+        to: "betheldivinehealthcare@gmail.com",
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        actorId: user.id,
+        attachments: [
+          {
+            filename: `care-plan-${safeFileName}.pdf`,
+            content: pdfBuffer,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("[static-forms] Email/PDF send failed:", err);
+    }
+  })();
 
   return NextResponse.json({ success: true, id: inserted.id }, { status: 201 });
 }

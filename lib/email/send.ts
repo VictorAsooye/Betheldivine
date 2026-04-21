@@ -10,11 +10,17 @@ function getResend(): Resend | null {
   return resend;
 }
 
+interface Attachment {
+  filename: string;
+  content: Buffer | string; // Buffer for binary, base64 string also accepted
+}
+
 interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
   actorId?: string; // for audit log
+  attachments?: Attachment[];
 }
 
 export async function sendEmail({
@@ -22,6 +28,7 @@ export async function sendEmail({
   subject,
   html,
   actorId,
+  attachments,
 }: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
   const client = getResend();
   const from = process.env.RESEND_FROM_EMAIL ?? "noreply@betheldivine.com";
@@ -32,7 +39,10 @@ export async function sendEmail({
   }
 
   try {
-    const { error } = await client.emails.send({ from, to, subject, html });
+    const { error } = await client.emails.send({
+      from, to, subject, html,
+      ...(attachments?.length ? { attachments } : {}),
+    });
 
     if (error) {
       console.error("[Email] Resend error:", error);
