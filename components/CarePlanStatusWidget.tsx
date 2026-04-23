@@ -1,19 +1,8 @@
-/**
- * CarePlanStatusWidget
- *
- * Server Component — rendered at page load, zero client JS.
- * Displays two states:
- *
- *   ALL CURRENT — single compact green bar, no list.
- *   ATTENTION NEEDED — card with two sections (no plan / stale),
- *     max 5 rows each, "View all (N) →" link if more exist.
- *
- * "Create / Update care plan" buttons deep-link to the role-specific
- * Forms page with ?open=client_care_plan&prefill_name=<name> so the
- * form opens pre-populated with that client's name.
- */
+"use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { suppressCarePlanAlert } from "@/lib/care-plans/suppress-action";
 import type {
   CarePlanAlertData,
   ClientCarePlanSummary,
@@ -25,11 +14,16 @@ const MAX_VISIBLE = 5;
 const NAVY = "#1a2e4a";
 const BORDER = "#dce2ec";
 
+// Widget is dismissed for 24 h when the user clicks X.
+// Key is date-scoped so it auto-resets each day.
+function dismissKey() {
+  return `care-plan-widget-dismissed-${new Date().toISOString().slice(0, 10)}`;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface Props {
   data: CarePlanAlertData;
-  /** Used to build role-scoped hrefs (e.g. /owner/forms, /admin/forms) */
   role: "owner" | "admin";
 }
 
@@ -89,11 +83,15 @@ function ClientRow({
   formHref,
   buttonLabel,
   urgency,
+  onIgnore,
+  ignoring,
 }: {
   client: ClientCarePlanSummary;
   formHref: string;
   buttonLabel: string;
   urgency: "red" | "amber";
+  onIgnore: () => void;
+  ignoring: boolean;
 }) {
   const btnBg = urgency === "red" ? "#c0392b" : "#b8860b";
   const subtext =
@@ -106,7 +104,7 @@ function ClientRow({
 
   return (
     <div
-      className="flex items-center justify-between gap-4 py-3 border-b last:border-b-0"
+      className="flex items-center justify-between gap-3 py-3 border-b last:border-b-0"
       style={{ borderColor: BORDER }}
     >
       <div className="flex-1 min-w-0">
@@ -120,6 +118,23 @@ function ClientRow({
           {subtext}
         </p>
       </div>
+
+      <button
+        onClick={onIgnore}
+        disabled={ignoring}
+        className="text-xs font-sans shrink-0 px-2 py-1 rounded transition-colors"
+        style={{ color: "#8e9ab0" }}
+        onMouseEnter={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color = "#c0392b")
+        }
+        onMouseLeave={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color = "#8e9ab0")
+        }
+        title="Stop showing this client in care plan alerts"
+      >
+        {ignoring ? "Ignoring…" : "Ignore"}
+      </button>
+
       <Link
         href={formHref}
         className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg shrink-0 transition-opacity hover:opacity-85"
@@ -134,13 +149,49 @@ function ClientRow({
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function CarePlanStatusWidget({ data, role }: Props) {
-  const { noPlans, stalePlans, totalActive, allCurrent } = data;
+  const [dismissed, setDismissed] = useState(false);
+  const [noPlans, setNoPlans] = useState<ClientCarePlanSummary[]>(data.noPlans);
+  const [stalePlans, setStalePlans] = useState<ClientCarePlanSummary[]>(data.stalePlans);
+  const [ignoringId, setIgnoringId] = useState<string | null>(null);
 
+  // Check localStorage on mount — dismissed state persists for the calendar day
+  useEffect(() => {
+    if (localStorage.getItem(dismissKey()) === "1") {
+      setDismissed(true);
+    }
+  }, []);
+
+  function handleDismiss() {
+    localStorage.setItem(dismissKey(), "1");
+    setDismissed(true);
+  }
+
+  async function handleIgnore(clientId: string, section: "no_plan" | "stale") {
+    setIgnoringId(clientId);
+    try {
+      await suppressCarePlanAlert(clientId);
+      if (section === "no_plan") {
+        setNoPlans((prev) => prev.filter((c) => c.clientId !== clientId));
+      } else {
+        setStalePlans((prev) => prev.filter((c) => c.clientId !== clientId));
+      }
+    } catch {
+      // Silently fail — worst case the row stays visible until next page load
+    } finally {
+      setIgnoringId(null);
+    }
+  }
+
+  if (dismissed) return null;
+
+  const { totalActive, allCurrent } = data;
   const formBase = `/${role}/forms?open=client_care_plan`;
   const docsHref = `/${role}/documents/care-plans`;
+  const totalAlert = noPlans.length + stalePlans.length;
+  const effectivelyAllCurrent = allCurrent || totalAlert === 0;
 
-  // ── State 1: Everything current (or no clients table rows yet) ──────────
-  if (allCurrent) {
+  // ── State 1: Everything current ──────────────────────────────────────────
+  if (effectivelyAllCurrent) {
     return (
       <div
         className="flex items-center justify-between gap-3 rounded-xl border px-5 py-4 mb-6"
@@ -170,13 +221,14 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
             )}
             {totalActive === 0 && (
               <span className="ml-2 opacity-80">
-                No active clients found — add clients to start tracking care plans
+                No active clients found — add clients to start tracking care
+                plans
               </span>
             )}
           </p>
         </div>
         <Link
-          href={`/${role}/documents/care-plans`}
+          href={docsHref}
           className="text-xs font-semibold font-sans shrink-0 hover:underline"
           style={{ color: "#2d8a5e" }}
         >
@@ -187,7 +239,6 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
   }
 
   // ── State 2: Attention needed ────────────────────────────────────────────
-  const totalAlert = noPlans.length + stalePlans.length;
   const visibleNoPlans = noPlans.slice(0, MAX_VISIBLE);
   const visibleStale = stalePlans.slice(0, MAX_VISIBLE);
   const extraNoPlans = noPlans.length - visibleNoPlans.length;
@@ -212,12 +263,29 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
         >
           Care plans needing attention
         </h2>
-        <span
-          className="text-xs font-bold font-sans px-2.5 py-1 rounded-full"
-          style={{ backgroundColor: "#fef2f2", color: "#c0392b" }}
+
+        {/* X dismiss button */}
+        <button
+          onClick={handleDismiss}
+          className="w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100"
+          style={{ color: "#8e9ab0" }}
+          title="Dismiss for today"
+          aria-label="Dismiss care plan alerts for today"
         >
-          {totalAlert}
-        </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
 
       <div className="px-6 py-4 space-y-6">
@@ -241,6 +309,8 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
                   )}`}
                   buttonLabel="Create care plan"
                   urgency="red"
+                  onIgnore={() => handleIgnore(client.clientId, "no_plan")}
+                  ignoring={ignoringId === client.clientId}
                 />
               ))}
             </div>
@@ -276,6 +346,8 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
                   )}`}
                   buttonLabel="Update care plan"
                   urgency="amber"
+                  onIgnore={() => handleIgnore(client.clientId, "stale")}
+                  ignoring={ignoringId === client.clientId}
                 />
               ))}
             </div>

@@ -90,10 +90,13 @@ export async function getCarePlanAlertData(): Promise<CarePlanAlertData> {
   const profileMap = new Map(clientProfiles.map((p) => [p.id, p]));
 
   // ── 2. Client rows (clients.id is the FK used in care_plan_documents) ────
+  // suppress_care_plan_alert = true means the owner/admin has explicitly
+  // opted that client out of dashboard alerts.
   const { data: clientRows, error: clientsError } = await service
     .from("clients")
-    .select("id, profile_id, created_at")
-    .in("profile_id", profileIds);
+    .select("id, profile_id, created_at, suppress_care_plan_alert")
+    .in("profile_id", profileIds)
+    .eq("suppress_care_plan_alert", false);
 
   if (clientsError || !clientRows?.length) {
     return { noPlans: [], stalePlans: [], totalActive: 0, allCurrent: true };
