@@ -42,6 +42,7 @@ export default async function AdminDashboard() {
             label="Total Users"
             value={userCount ?? 0}
             accent="#1a2e4a"
+            href="/admin/users"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -52,6 +53,7 @@ export default async function AdminDashboard() {
             label="Employees"
             value={employeeCount ?? 0}
             accent="#2d8a5e"
+            href="/admin/users"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
@@ -62,6 +64,7 @@ export default async function AdminDashboard() {
             label="Clients"
             value={clientCount ?? 0}
             accent="#2AADAD"
+            href="/admin/users"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
@@ -72,6 +75,7 @@ export default async function AdminDashboard() {
             label="Pending Review"
             value={pendingCount ?? 0}
             accent="#c8991a"
+            href="/admin/users"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -82,6 +86,7 @@ export default async function AdminDashboard() {
             label="License Alerts"
             value={licenseAlertCount ?? 0}
             accent="#c0392b"
+            href="/admin/licenses"
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
