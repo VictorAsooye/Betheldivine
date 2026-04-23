@@ -5,6 +5,11 @@ import { sendEmail } from "@/lib/email/send";
 import { carePlanSubmittedTemplate } from "@/lib/email/templates";
 import { generateCarePlanPdf } from "@/lib/pdf/care-plan-pdf";
 
+// Keep the function alive long enough for PDF generation + Resend call.
+// Default is 10s (Hobby) / 60s (Pro). 30s is safe on both and prevents
+// Vercel from killing the function mid-email on a cold start.
+export const maxDuration = 30;
+
 function getServiceClient() {
   return createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,7 +64,7 @@ export async function POST(req: NextRequest) {
     hour: "numeric", minute: "2-digit", timeZoneName: "short",
   });
 
-  // Generate PDF + send email — fire and forget (don't block the response)
+  // Build email template
   const clientName = String((data as Record<string, unknown>)["client_full_name"] ?? "client");
   const safeFileName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const emailTemplate = carePlanSubmittedTemplate({
@@ -69,36 +74,38 @@ export async function POST(req: NextRequest) {
     submittedAt,
   });
 
-  (async () => {
-    // Try to generate PDF — if it fails, still send the email without attachment
-    let pdfBuffer: Buffer | null = null;
-    try {
-      pdfBuffer = await generateCarePlanPdf(
-        data as Record<string, unknown>,
-        submittedBy,
-        submittedAt
-      );
-      console.log("[static-forms] PDF generated successfully, size:", pdfBuffer.length);
-    } catch (pdfErr) {
-      console.error("[static-forms] PDF generation failed (will send email without attachment):", pdfErr);
-    }
+  // Generate PDF — if it fails, fall through and send email without attachment.
+  // Both steps are awaited before returning so Vercel keeps the function alive
+  // for the full duration. The client will wait ~3-8s for the 201 — the UI
+  // shows a "generating PDF" loading state to set expectations.
+  let pdfBuffer: Buffer | null = null;
+  try {
+    pdfBuffer = await generateCarePlanPdf(
+      data as Record<string, unknown>,
+      submittedBy,
+      submittedAt
+    );
+    console.log("[static-forms] PDF generated, size:", pdfBuffer.length);
+  } catch (pdfErr) {
+    console.error("[static-forms] PDF generation failed, sending email without attachment:", pdfErr);
+  }
 
-    try {
-      await sendEmail({
-        to: "betheldivinehealthcare@gmail.com",
-        subject: emailTemplate.subject,
-        html: emailTemplate.html,
-        actorId: user.id,
-        ...(pdfBuffer
-          ? { attachments: [{ filename: `care-plan-${safeFileName}.pdf`, content: pdfBuffer }] }
-          : {}),
-      });
-      console.log("[static-forms] Email sent successfully", pdfBuffer ? "with PDF" : "without PDF (generation failed)");
-    } catch (emailErr) {
-      console.error("[static-forms] Email send failed:", emailErr);
-    }
-  })();
+  try {
+    await sendEmail({
+      to: "betheldivinehealthcare@gmail.com",
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      actorId: user.id,
+      ...(pdfBuffer
+        ? { attachments: [{ filename: `care-plan-${safeFileName}.pdf`, content: pdfBuffer }] }
+        : {}),
+    });
+    console.log("[static-forms] Email sent", pdfBuffer ? "with PDF attachment" : "without PDF (generation failed)");
+  } catch (emailErr) {
+    console.error("[static-forms] Email send failed:", emailErr);
+  }
 
+  // Response is sent AFTER both awaits above — function is guaranteed alive.
   return NextResponse.json({ success: true, id: inserted.id }, { status: 201 });
 }
 

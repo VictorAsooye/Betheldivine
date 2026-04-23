@@ -334,8 +334,63 @@ export default function FormsPage({ role }: Props) {
 
         {/* FORM VIEW */}
         {view === "form" && (
-          <div>
-            <button style={backBtnStyle} onClick={goBack}>
+          <div style={{ position: "relative" }}>
+            {/* Submitting overlay — shown while PDF is generating + email sending.
+                API now awaits both before returning, so this can be 3-8 seconds.
+                Overlay prevents double-submit and sets expectations. */}
+            {submitting && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 999,
+                  backgroundColor: "rgba(26, 46, 74, 0.72)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "20px",
+                }}
+              >
+                {/* Spinner */}
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    border: "4px solid rgba(255,255,255,0.2)",
+                    borderTopColor: TEAL,
+                    borderRadius: "50%",
+                    animation: "spin 0.9s linear infinite",
+                  }}
+                />
+                <div style={{ textAlign: "center", maxWidth: "320px" }}>
+                  <div
+                    style={{
+                      color: "#ffffff",
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      fontFamily: "var(--font-lora), Georgia, serif",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Submitting Care Plan…
+                  </div>
+                  <div
+                    style={{
+                      color: "rgba(255,255,255,0.72)",
+                      fontSize: "13px",
+                      lineHeight: "1.6",
+                      fontFamily: "var(--font-source-sans), system-ui, sans-serif",
+                    }}
+                  >
+                    Generating PDF and notifying admin. This may take a few seconds — please don&apos;t close this tab.
+                  </div>
+                </div>
+              </div>
+            )}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+            <button style={backBtnStyle} onClick={goBack} disabled={submitting}>
               ← Back to Forms
             </button>
 
