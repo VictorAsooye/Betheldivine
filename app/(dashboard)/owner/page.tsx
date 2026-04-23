@@ -1,9 +1,11 @@
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import ActionLink from "@/components/ActionLink";
+import CarePlanStatusWidget from "@/components/CarePlanStatusWidget";
 import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
 
 export default async function OwnerDashboard() {
   const supabase = await createClient();
@@ -17,21 +19,27 @@ export default async function OwnerDashboard() {
   const today = new Date().toISOString().split("T")[0];
 
   const [
-    { count: employeeCount },
-    { count: clientCount },
-    { count: shiftCount },
-    { count: pendingTimeOff },
-    { count: licenseAlertCount },
+    [
+      { count: employeeCount },
+      { count: clientCount },
+      { count: shiftCount },
+      { count: pendingTimeOff },
+      { count: licenseAlertCount },
+    ],
+    carePlanAlertData,
   ] = await Promise.all([
-    // Count by role in profiles — the single source of truth
-    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
-    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
-    service.from("shifts").select("*", { count: "exact", head: true })
-      .gte("scheduled_start", today + "T00:00:00")
-      .lte("scheduled_start", today + "T23:59:59"),
-    service.from("time_off_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    service.from("licenses").select("*", { count: "exact", head: true })
-      .in("status", ["expiring_soon", "expired"]),
+    Promise.all([
+      // Count by role in profiles — the single source of truth
+      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
+      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
+      service.from("shifts").select("*", { count: "exact", head: true })
+        .gte("scheduled_start", today + "T00:00:00")
+        .lte("scheduled_start", today + "T23:59:59"),
+      service.from("time_off_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      service.from("licenses").select("*", { count: "exact", head: true })
+        .in("status", ["expiring_soon", "expired"]),
+    ]),
+    getCarePlanAlertData(),
   ]);
 
   return (
@@ -42,6 +50,8 @@ export default async function OwnerDashboard() {
       />
 
       <div className="p-8">
+        <CarePlanStatusWidget data={carePlanAlertData} role="owner" />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Total Employees"

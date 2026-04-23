@@ -1,8 +1,10 @@
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import ActionLink from "@/components/ActionLink";
+import CarePlanStatusWidget from "@/components/CarePlanStatusWidget";
 import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
 
 export default async function AdminDashboard() {
   // Use service role so RLS never filters out rows from the counts
@@ -11,12 +13,18 @@ export default async function AdminDashboard() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const [{ count: userCount }, { count: employeeCount }, { count: clientCount }, { count: pendingCount }, { count: licenseAlertCount }] = await Promise.all([
-    service.from("profiles").select("*", { count: "exact", head: true }),
-    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
-    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
-    service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pending"),
-    service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
+  const [
+    [{ count: userCount }, { count: employeeCount }, { count: clientCount }, { count: pendingCount }, { count: licenseAlertCount }],
+    carePlanAlertData,
+  ] = await Promise.all([
+    Promise.all([
+      service.from("profiles").select("*", { count: "exact", head: true }),
+      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
+      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
+      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pending"),
+      service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
+    ]),
+    getCarePlanAlertData(),
   ]);
 
   return (
@@ -27,6 +35,8 @@ export default async function AdminDashboard() {
       />
 
       <div className="p-8">
+        <CarePlanStatusWidget data={carePlanAlertData} role="admin" />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Total Users"

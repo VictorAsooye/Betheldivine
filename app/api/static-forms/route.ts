@@ -4,10 +4,13 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
 import { carePlanSubmittedTemplate } from "@/lib/email/templates";
 import { generateCarePlanPdf } from "@/lib/pdf/care-plan-pdf";
+import {
+  generateCarePlanFilename,
+  generateCarePlanStoragePath,
+} from "@/lib/care-plans/filename";
 
-// Keep the function alive long enough for PDF generation + Resend call.
-// Default is 10s (Hobby) / 60s (Pro). 30s is safe on both and prevents
-// Vercel from killing the function mid-email on a cold start.
+// Keep the function alive long enough for PDF generation + Resend call +
+// storage upload. Default is 10s (Hobby) / 60s (Pro). 30s is safe for both.
 export const maxDuration = 30;
 
 function getServiceClient() {
@@ -41,6 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   const service = getServiceClient();
+
+  // ── 1. Save form submission ──────────────────────────────────────────────
   const { data: inserted, error } = await service
     .from("static_form_submissions")
     .insert({ form_type, data, submitted_by: user.id })
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch submitter's name for the email
+  // ── 2. Resolve submitter name ────────────────────────────────────────────
   const { data: profile } = await service
     .from("profiles")
     .select("full_name, email")
@@ -59,14 +64,18 @@ export async function POST(req: NextRequest) {
     .single();
 
   const submittedBy = profile?.full_name ?? profile?.email ?? "Unknown";
-  const submittedAt = new Date().toLocaleString("en-US", {
+  const submittedAtDate = new Date();
+  const submittedAt = submittedAtDate.toLocaleString("en-US", {
     month: "long", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit", timeZoneName: "short",
   });
 
-  // Build email template
-  const clientName = String((data as Record<string, unknown>)["client_full_name"] ?? "client");
-  const safeFileName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  // ── 3. Build standardized filename (shared by storage + email attachment) ─
+  const clientFullName = String((data as Record<string, unknown>)["client_full_name"] ?? "client");
+  const filename = generateCarePlanFilename(clientFullName, inserted.id, submittedAtDate);
+  const storagePath = generateCarePlanStoragePath(user.id, filename);
+
+  // ── 4. Build email template ──────────────────────────────────────────────
   const emailTemplate = carePlanSubmittedTemplate({
     formData: data as Record<string, unknown>,
     submissionId: inserted.id,
@@ -74,10 +83,8 @@ export async function POST(req: NextRequest) {
     submittedAt,
   });
 
-  // Generate PDF — if it fails, fall through and send email without attachment.
-  // Both steps are awaited before returning so Vercel keeps the function alive
-  // for the full duration. The client will wait ~3-8s for the 201 — the UI
-  // shows a "generating PDF" loading state to set expectations.
+  // ── 5. Generate PDF ──────────────────────────────────────────────────────
+  // If generation fails, continue — email is primary, storage is archival.
   let pdfBuffer: Buffer | null = null;
   try {
     pdfBuffer = await generateCarePlanPdf(
@@ -87,9 +94,72 @@ export async function POST(req: NextRequest) {
     );
     console.log("[static-forms] PDF generated, size:", pdfBuffer.length);
   } catch (pdfErr) {
-    console.error("[static-forms] PDF generation failed, sending email without attachment:", pdfErr);
+    console.error("[static-forms] PDF generation failed:", pdfErr);
   }
 
+  // ── 6. Archive PDF to Supabase Storage ───────────────────────────────────
+  // Storage is archival — failures are logged but never block the email send.
+  if (pdfBuffer) {
+    let uploadedPath: string | null = null;
+
+    try {
+      const { error: uploadErr } = await service.storage
+        .from("care-plans")
+        .upload(storagePath, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadErr) {
+        console.error("[static-forms] Storage upload failed:", uploadErr.message);
+      } else {
+        uploadedPath = storagePath;
+        console.log("[static-forms] PDF archived to storage:", storagePath);
+      }
+    } catch (storageErr) {
+      console.error("[static-forms] Storage upload threw:", storageErr);
+    }
+
+    // ── 7. Insert care_plan_documents metadata row ────────────────────────
+    // Only insert if upload succeeded. If DB insert fails, delete the
+    // orphaned file from storage so the two never drift out of sync.
+    if (uploadedPath) {
+      try {
+        const { error: docErr } = await service
+          .from("care_plan_documents")
+          .insert({
+            care_plan_submission_id: inserted.id,
+            client_id: null,              // no UUID in form data; backfillable later
+            storage_path: uploadedPath,
+            filename,
+            file_size_bytes: pdfBuffer.length,
+            submitted_by: user.id,
+            submitted_at: submittedAtDate.toISOString(),
+          });
+
+        if (docErr) {
+          console.error("[static-forms] care_plan_documents insert failed:", docErr.message);
+          // Delete the orphaned storage file
+          const { error: deleteErr } = await service.storage
+            .from("care-plans")
+            .remove([uploadedPath]);
+          if (deleteErr) {
+            console.error("[static-forms] Orphan cleanup failed:", deleteErr.message);
+          } else {
+            console.log("[static-forms] Orphaned storage file cleaned up:", uploadedPath);
+          }
+        } else {
+          console.log("[static-forms] care_plan_documents row inserted");
+        }
+      } catch (docErr) {
+        console.error("[static-forms] care_plan_documents insert threw:", docErr);
+      }
+    }
+  }
+
+  // ── 8. Send email ────────────────────────────────────────────────────────
+  // Always runs — even if PDF generation or storage failed.
+  // Uses the standardized filename for the attachment (same as storage).
   try {
     await sendEmail({
       to: "betheldivinehealthcare@gmail.com",
@@ -97,15 +167,18 @@ export async function POST(req: NextRequest) {
       html: emailTemplate.html,
       actorId: user.id,
       ...(pdfBuffer
-        ? { attachments: [{ filename: `care-plan-${safeFileName}.pdf`, content: pdfBuffer }] }
+        ? { attachments: [{ filename, content: pdfBuffer }] }
         : {}),
     });
-    console.log("[static-forms] Email sent", pdfBuffer ? "with PDF attachment" : "without PDF (generation failed)");
+    console.log(
+      "[static-forms] Email sent",
+      pdfBuffer ? `with attachment: ${filename}` : "without PDF (generation failed)"
+    );
   } catch (emailErr) {
     console.error("[static-forms] Email send failed:", emailErr);
   }
 
-  // Response is sent AFTER both awaits above — function is guaranteed alive.
+  // Response sent only after all awaits complete — Vercel stays alive.
   return NextResponse.json({ success: true, id: inserted.id }, { status: 201 });
 }
 

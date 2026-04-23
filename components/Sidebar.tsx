@@ -8,6 +8,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  children?: NavItem[];
 }
 
 interface SidebarProps {
@@ -76,6 +77,19 @@ const adminNav: NavItem[] = [
         </svg>
       </NavIcon>
     ),
+    children: [
+      {
+        label: "Care Plans",
+        href: "/admin/documents/care-plans",
+        icon: (
+          <NavIcon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </NavIcon>
+        ),
+      },
+    ],
   },
   {
     label: "Payments",
@@ -189,6 +203,19 @@ const ownerNav: NavItem[] = [
         </svg>
       </NavIcon>
     ),
+    children: [
+      {
+        label: "Care Plans",
+        href: "/owner/documents/care-plans",
+        icon: (
+          <NavIcon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </NavIcon>
+        ),
+      },
+    ],
   },
   {
     label: "Licenses",
@@ -302,6 +329,19 @@ const employeeNav: NavItem[] = [
         </svg>
       </NavIcon>
     ),
+    children: [
+      {
+        label: "Care Plans",
+        href: "/employee/documents/care-plans",
+        icon: (
+          <NavIcon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </NavIcon>
+        ),
+      },
+    ],
   },
   {
     label: "Time Off",
@@ -412,26 +452,62 @@ export default function Sidebar({ role, userName, onNavigate }: SidebarProps) {
             (item.href !== `/${role}` && pathname.startsWith(item.href));
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans font-medium transition-all relative"
-              style={{
-                color: isActive ? "#ffffff" : "#8e9ab0",
-                backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-              }}
-            >
-              {/* Gold left border for active */}
-              {isActive && (
-                <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
-                  style={{ backgroundColor: "#c8991a" }}
-                />
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans font-medium transition-all relative"
+                style={{
+                  color: isActive ? "#ffffff" : "#8e9ab0",
+                  backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                }}
+              >
+                {/* Gold left border for active */}
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
+                    style={{ backgroundColor: "#c8991a" }}
+                  />
+                )}
+                {item.icon}
+                {item.label}
+              </Link>
+
+              {/* Sub-items — always visible when the parent has children */}
+              {item.children && item.children.length > 0 && (
+                <div className="ml-4 mt-0.5 space-y-0.5">
+                  {item.children.map((child) => {
+                    const isChildActive =
+                      pathname === child.href ||
+                      pathname.startsWith(child.href + "/");
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={onNavigate}
+                        className="flex items-center gap-2.5 pl-5 pr-3 py-2 rounded-lg text-xs font-sans font-medium transition-all relative"
+                        style={{
+                          color: isChildActive ? "#ffffff" : "#6b7a90",
+                          backgroundColor: isChildActive
+                            ? "rgba(255,255,255,0.06)"
+                            : "transparent",
+                          borderLeft: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        {isChildActive && (
+                          <span
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+                            style={{ backgroundColor: "#c8991a" }}
+                          />
+                        )}
+                        {child.icon}
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-              {item.icon}
-              {item.label}
-            </Link>
+            </div>
           );
         })}
       </nav>

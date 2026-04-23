@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageHeader from "@/components/PageHeader";
 import ClientCarePlanForm from "@/components/forms/ClientCarePlanForm";
 
@@ -19,9 +19,13 @@ interface Submission {
 
 interface Props {
   role: "admin" | "owner" | "employee";
+  /** When present, auto-opens this form key on mount (e.g. "client_care_plan") */
+  autoOpenForm?: string;
+  /** When present, pre-populates client_full_name in the opened form */
+  prefillClientName?: string;
 }
 
-export default function FormsPage({ role }: Props) {
+export default function FormsPage({ role, autoOpenForm, prefillClientName }: Props) {
   const [view, setView] = useState<"list" | "form" | "success" | "submissions">("list");
   const [selectedForm, setSelectedForm] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,6 +37,16 @@ export default function FormsPage({ role }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const isAdminOwner = role === "admin" || role === "owner";
+
+  // Auto-open a form when deep-linked from the care plan widget
+  // (e.g. /owner/forms?open=client_care_plan&prefill_name=Joan+Cutney)
+  useEffect(() => {
+    if (autoOpenForm) {
+      setSelectedForm(autoOpenForm);
+      setView("form");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(data: Record<string, unknown>) {
     setSubmitting(true);
@@ -395,7 +409,11 @@ export default function FormsPage({ role }: Props) {
             </button>
 
             {selectedForm === "client_care_plan" && (
-              <ClientCarePlanForm onSubmit={handleSubmit} submitting={submitting} />
+              <ClientCarePlanForm
+                onSubmit={handleSubmit}
+                submitting={submitting}
+                initialData={prefillClientName ? { client_full_name: prefillClientName } : undefined}
+              />
             )}
 
             {error && (

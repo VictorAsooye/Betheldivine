@@ -5,6 +5,8 @@ import { useState } from "react";
 interface Props {
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   submitting: boolean;
+  initialData?: Record<string, unknown>;
+  submitLabel?: string;
 }
 
 const NAVY = "#1a2e4a";
@@ -183,8 +185,8 @@ const SAFETY_FLAGS = [
 
 type FormData = Record<string, unknown>;
 
-export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
-  const [formData, setFormData] = useState<FormData>({});
+export default function ClientCarePlanForm({ onSubmit, submitting, initialData, submitLabel }: Props) {
+  const [formData, setFormData] = useState<FormData>(initialData ?? {});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showErrorSummary, setShowErrorSummary] = useState(false);
 
@@ -811,7 +813,7 @@ export default function ClientCarePlanForm({ onSubmit, submitting }: Props) {
               transition: "background-color 0.2s",
             }}
           >
-            {submitting ? "Submitting…" : "Submit Care Plan"}
+            {submitting ? "Saving…" : (submitLabel ?? "Submit Care Plan")}
           </button>
         </div>
       </form>

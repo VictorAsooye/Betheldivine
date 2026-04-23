@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+const ClientCarePlanForm = dynamic(
+  () => import("@/components/forms/ClientCarePlanForm"),
+  { ssr: false }
+);
 
 const TEAL = "#2AADAD";
 const NAVY = "#1a2e4a";
@@ -23,20 +29,22 @@ const ADL_TASKS = [
   { key: "shopping", label: "Shopping / Errands" },
 ];
 
+// Labels must match exactly what the form radio buttons save
 const ADL_LEVELS = [
-  { key: "independent", label: "Independent" },
-  { key: "supervision", label: "Supervision" },
-  { key: "minimal", label: "Minimal Assist" },
-  { key: "moderate", label: "Moderate Assist" },
-  { key: "total", label: "Total Assist" },
+  { label: "Independent" },
+  { label: "Supervision" },
+  { label: "Minimal Assist" },
+  { label: "Moderate Assist" },
+  { label: "Total Assist" },
 ];
 
+// Keys must match exactly what ClientCarePlanForm saves (service_${key}_hours / _days)
 const SERVICES = [
   { key: "personal_care", label: "Personal Care / Hygiene" },
   { key: "companionship", label: "Companionship" },
-  { key: "medication", label: "Medication Reminders" },
-  { key: "meal_prep", label: "Meal Preparation" },
-  { key: "housekeeping", label: "Light Housekeeping" },
+  { key: "medication_reminders", label: "Medication Reminders" },
+  { key: "meal_preparation", label: "Meal Preparation" },
+  { key: "light_housekeeping", label: "Light Housekeeping" },
   { key: "transportation", label: "Transportation / Errands" },
 ];
 
@@ -52,10 +60,6 @@ function val(data: Record<string, unknown>, key: string): string {
   const v = data[key];
   if (v === undefined || v === null || v === "") return "";
   return String(v);
-}
-
-function checked(data: Record<string, unknown>, key: string): boolean {
-  return Boolean(data[key]);
 }
 
 function days(data: Record<string, unknown>, key: string): string[] {
@@ -103,8 +107,12 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
   const [submittedAt, setSubmittedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     fetch(`/api/static-forms/${params.id}`)
       .then((r) => { if (!r.ok) { setNotFound(true); setLoading(false); return null; } return r.json(); })
       .then((d) => {
@@ -116,6 +124,32 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         setLoading(false);
       });
   }, [params.id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  async function handleEdit(updatedData: Record<string, unknown>) {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/static-forms/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: updatedData }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        setSaveError(body.error ?? "Failed to save");
+        setSaving(false);
+        return;
+      }
+      // Refresh the page data and close the modal
+      setShowEdit(false);
+      loadData();
+    } catch {
+      setSaveError("Network error — please try again");
+    }
+    setSaving(false);
+  }
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "system-ui" }}>
@@ -162,7 +196,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
 
   return (
     <>
-      {/* Print button — hidden when printing */}
+      {/* ── Top action bar (hidden when printing) ── */}
       <div className="no-print" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
         backgroundColor: NAVY, padding: "10px 24px",
@@ -178,6 +212,16 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
             </span>
           )}
           <button
+            onClick={() => { setSaveError(null); setShowEdit(true); }}
+            style={{
+              backgroundColor: "transparent", color: "#fff",
+              border: "1px solid rgba(255,255,255,0.35)", borderRadius: "8px",
+              padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+              fontFamily: "system-ui",
+            }}>
+            ✏️ Edit
+          </button>
+          <button
             onClick={() => window.print()}
             style={{
               backgroundColor: TEAL, color: "#fff", border: "none", borderRadius: "8px",
@@ -189,18 +233,71 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      {/* Main document */}
+      {/* ── Edit modal ── */}
+      {showEdit && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            backgroundColor: "rgba(0,0,0,0.55)",
+            overflowY: "auto",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            padding: "40px 16px 60px",
+          }}
+        >
+          {/* Close strip */}
+          <div style={{
+            width: "100%", maxWidth: "940px", display: "flex",
+            justifyContent: "space-between", alignItems: "center",
+            marginBottom: "12px",
+          }}>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: "15px", fontFamily: "system-ui" }}>
+              Edit Care Plan
+            </span>
+            <button
+              onClick={() => setShowEdit(false)}
+              style={{
+                background: "rgba(255,255,255,0.15)", border: "none", color: "#fff",
+                borderRadius: "6px", padding: "6px 14px", fontSize: "13px",
+                cursor: "pointer", fontFamily: "system-ui",
+              }}
+            >
+              ✕ Cancel
+            </button>
+          </div>
+
+          {saveError && (
+            <div style={{
+              width: "100%", maxWidth: "940px", marginBottom: "10px",
+              backgroundColor: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: "6px", padding: "10px 14px",
+              fontSize: "13px", color: "#dc2626", fontFamily: "system-ui",
+            }}>
+              {saveError}
+            </div>
+          )}
+
+          <ClientCarePlanForm
+            initialData={data}
+            onSubmit={handleEdit}
+            submitting={saving}
+            submitLabel="Save Changes"
+          />
+        </div>
+      )}
+
+      {/* ── Main document ── */}
       <div style={{
         fontFamily: "'Times New Roman', Times, serif",
         fontSize: "10px",
         color: "#1a1a1a",
         maxWidth: "760px",
         margin: "0 auto",
-        padding: "70px 24px 40px", // top padding for the fixed bar (screen only)
+        padding: "70px 24px 40px",
         backgroundColor: "#fff",
       }}>
 
-        {/* ── Brand header ── */}
+        {/* Brand header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "4px" }}>
           <div>
             <div style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: "20px", color: NAVY, letterSpacing: "1px" }}>
@@ -218,7 +315,6 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
           </div>
         </div>
 
-        {/* Gold divider */}
         <div style={{ height: "2px", backgroundColor: GOLD, marginBottom: "2px" }} />
         <div style={{ height: "1px", backgroundColor: TEAL, marginBottom: "16px" }} />
 
@@ -228,7 +324,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
           <Field label="Client Full Name" value={val(data, "client_full_name")} style={{ flex: 2 }} />
           <Field label="Date of Birth" value={val(data, "date_of_birth")} style={{ flex: 1 }} />
           <Field label="Gender" value={val(data, "gender")} style={{ flex: 1 }} />
-          <Field label="Medicaid / Medicare #" value={val(data, "medicaid_medicare_number")} style={{ flex: 1.5 }} />
+          <Field label="Medicaid / Medicare #" value={val(data, "medicaid_number")} style={{ flex: 1.5 }} />
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "8px" }}>
           <Field label="Address" value={val(data, "address")} style={{ flex: 3 }} />
@@ -239,13 +335,13 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         <div style={{ display: "flex", gap: "16px", marginBottom: "8px" }}>
           <Field label="Primary Phone" value={val(data, "primary_phone")} style={{ flex: 1 }} />
           <Field label="Emergency Contact Name" value={val(data, "emergency_contact_name")} style={{ flex: 2 }} />
-          <Field label="Relationship" value={val(data, "emergency_contact_relationship")} style={{ flex: 1 }} />
+          <Field label="Relationship" value={val(data, "emergency_relationship")} style={{ flex: 1 }} />
           <Field label="Emergency Phone" value={val(data, "emergency_phone")} style={{ flex: 1 }} />
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "8px" }}>
-          <Field label="Primary Physician / Doctor" value={val(data, "primary_physician")} style={{ flex: 2 }} />
+          <Field label="Primary Physician / Doctor" value={val(data, "physician_name")} style={{ flex: 2 }} />
           <Field label="Physician Phone" value={val(data, "physician_phone")} style={{ flex: 1 }} />
-          <Field label="Date of Assessment" value={val(data, "date_of_assessment")} style={{ flex: 1 }} />
+          <Field label="Date of Assessment" value={val(data, "assessment_date")} style={{ flex: 1 }} />
           <Field label="Care Plan Start Date" value={val(data, "care_plan_start_date")} style={{ flex: 1 }} />
         </div>
 
@@ -260,10 +356,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
           <div style={{ fontSize: "8px", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: "3px" }}>
             Known Allergies (medications, food, environmental)
           </div>
-          <div style={{
-            border: `1px solid ${BORDER}`, minHeight: "32px", padding: "4px 6px",
-            fontSize: "10px", color: NAVY,
-          }}>
+          <div style={{ border: `1px solid ${BORDER}`, minHeight: "32px", padding: "4px 6px", fontSize: "10px", color: NAVY }}>
             {val(data, "known_allergies") || " "}
           </div>
         </div>
@@ -271,11 +364,8 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
           <div style={{ fontSize: "8px", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: "3px" }}>
             Relevant Medical / Surgical History
           </div>
-          <div style={{
-            border: `1px solid ${BORDER}`, minHeight: "32px", padding: "4px 6px",
-            fontSize: "10px", color: NAVY,
-          }}>
-            {val(data, "medical_surgical_history") || " "}
+          <div style={{ border: `1px solid ${BORDER}`, minHeight: "32px", padding: "4px 6px", fontSize: "10px", color: NAVY }}>
+            {val(data, "medical_history") || " "}
           </div>
         </div>
 
@@ -286,7 +376,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
             <tr style={{ backgroundColor: TEAL_LIGHT }}>
               <th style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", textAlign: "left", fontWeight: 700, color: NAVY }}>ADL Task</th>
               {ADL_LEVELS.map((l) => (
-                <th key={l.key} style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", textAlign: "center", fontWeight: 700, color: NAVY, width: "90px" }}>
+                <th key={l.label} style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", textAlign: "center", fontWeight: 700, color: NAVY, width: "90px" }}>
                   {l.label}
                 </th>
               ))}
@@ -294,13 +384,14 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
           </thead>
           <tbody>
             {ADL_TASKS.map((task, i) => {
+              // The form saves the full label string e.g. "Independent", "Minimal Assist"
               const selected = val(data, `adl_${task.key}`);
               return (
                 <tr key={task.key} style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}>
                   <td style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", color: NAVY }}>{task.label}</td>
                   {ADL_LEVELS.map((l) => (
-                    <td key={l.key} style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", textAlign: "center" }}>
-                      <Box filled={selected === l.key} />
+                    <td key={l.label} style={{ border: `1px solid ${BORDER}`, padding: "5px 8px", textAlign: "center" }}>
+                      <Box filled={selected === l.label} />
                     </td>
                   ))}
                 </tr>
@@ -366,7 +457,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
             Additional Safety Notes
           </div>
           <div style={{ border: `1px solid ${BORDER}`, minHeight: "32px", padding: "4px 6px", fontSize: "10px", color: NAVY }}>
-            {val(data, "additional_safety_notes") || " "}
+            {val(data, "safety_notes") || " "}
           </div>
         </div>
 
@@ -375,7 +466,7 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         <div style={{ display: "flex", gap: "16px", marginBottom: "8px" }}>
           <Field label="Preferred Language" value={val(data, "preferred_language")} style={{ flex: 1 }} />
           <Field label="Preferred Name / Nickname" value={val(data, "preferred_name")} style={{ flex: 1 }} />
-          <Field label="Religious / Cultural Preferences" value={val(data, "religious_cultural_preferences")} style={{ flex: 1.5 }} />
+          <Field label="Religious / Cultural Preferences" value={val(data, "cultural_preferences")} style={{ flex: 1.5 }} />
         </div>
         <div style={{ marginBottom: "6px" }}>
           <div style={{ fontSize: "8px", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: "3px" }}>
@@ -413,12 +504,12 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
           <Field label="Care Coordinator / Supervisor Signature" value={val(data, "coordinator_signature")} style={{ flex: 2 }} />
           <Field label="Printed Name" value={val(data, "coordinator_printed_name")} style={{ flex: 2 }} />
-          <Field label="Date" value={val(data, "coordinator_date")} style={{ flex: 1 }} />
+          <Field label="Date" value={val(data, "coordinator_signature_date")} style={{ flex: 1 }} />
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
           <Field label="Caregiver / Aide Signature" value={val(data, "caregiver_signature")} style={{ flex: 2 }} />
           <Field label="Printed Name" value={val(data, "caregiver_printed_name")} style={{ flex: 2 }} />
-          <Field label="Date" value={val(data, "caregiver_date")} style={{ flex: 1 }} />
+          <Field label="Date" value={val(data, "caregiver_signature_date")} style={{ flex: 1 }} />
         </div>
 
         {/* Footer */}
