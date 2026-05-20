@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   // ── Authenticated: get role ──────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, onboarding_complete")
     .eq("id", user.id)
     .single();
 
@@ -50,6 +50,17 @@ export async function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages to their dashboard
   if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
     return NextResponse.redirect(new URL(home, request.url));
+  }
+
+  // Onboarding gate: owners and admins must complete onboarding before
+  // accessing their dashboards. Added after the existing redirect logic so it
+  // does not interfere with auth/role routing above.
+  if (
+    (role === "owner" || role === "admin") &&
+    profile?.onboarding_complete === false &&
+    !pathname.startsWith("/onboarding")
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
   // Pending users can only access /pending

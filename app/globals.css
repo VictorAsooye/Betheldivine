@@ -12,6 +12,13 @@ body {
   background: var(--background);
 }
 
+@layer components {
+  /* Onboarding form inputs */
+  .onb-input {
+    @apply w-full bg-paper2 border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink outline-none;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

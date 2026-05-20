@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import PageShell from "@/components/layout/PageShell";
 import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
+import WelcomeBanner from "@/components/onboarding/WelcomeBanner";
+import SetupChecklist from "@/components/onboarding/SetupChecklist";
+import NextStepCard from "@/components/onboarding/NextStepCard";
 import {
   AlertTriangle,
   FileText,
@@ -10,6 +13,10 @@ import {
   Shield,
   Mail,
   Activity,
+  Palette,
+  Send,
+  Upload,
+  type LucideIcon,
 } from "lucide-react";
 
 function relativeTime(iso: string): string {
@@ -80,10 +87,20 @@ export default async function OwnerDashboard() {
 
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
+  const brandingPromise = user
+    ? service
+        .from("company_branding")
+        .select("company_name")
+        .eq("org_id", user.id)
+        .maybeSingle()
+    : Promise.resolve({ data: null });
+
   const [
     profileRes,
+    brandingRes,
     { count: formCount },
     { count: submissionsThisWeek },
+    { count: submissionsTotal },
     { count: licenseCount },
     { count: licenseAttention },
     { count: documentCount },
@@ -94,8 +111,10 @@ export default async function OwnerDashboard() {
     carePlanData,
   ] = await Promise.all([
     profilePromise,
+    brandingPromise,
     service.from("forms").select("*", { count: "exact", head: true }).eq("is_active", true),
     service.from("form_submissions").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
+    service.from("form_submissions").select("*", { count: "exact", head: true }),
     service.from("licenses").select("*", { count: "exact", head: true }),
     service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
     service.from("documents").select("*", { count: "exact", head: true }),
@@ -144,9 +163,51 @@ export default async function OwnerDashboard() {
 
   const careRows = [...carePlanData.noPlans, ...carePlanData.stalePlans].slice(0, 5);
 
+  // Onboarding setup state.
+  const branding = (brandingRes as { data: { company_name?: string } | null }).data;
+  const companyName = branding?.company_name ?? "Bethel Divine";
+  const hasBranding = !!branding;
+  const hasLicense = (licenseCount ?? 0) > 0;
+  const hasForm = (formCount ?? 0) > 0;
+  const hasFormSent = (submissionsTotal ?? 0) > 0;
+  const hasDocument = (documentCount ?? 0) > 0;
+
+  const setupSteps: Array<{
+    done: boolean;
+    title: string;
+    description: string;
+    href: string;
+    icon: LucideIcon;
+  }> = [
+    { done: hasBranding, title: "Set up your branding", description: "Add your logo, colors, and company details.", href: "/owner/settings/branding", icon: Palette },
+    { done: hasLicense, title: "Add your first license", description: "Track credentials and get expiry alerts.", href: "/owner/licenses/add", icon: Shield },
+    { done: hasForm, title: "Create a form with Sola AI", description: "Describe it in plain English — built in seconds.", href: "/owner/forms", icon: FileText },
+    { done: hasFormSent, title: "Send your first form", description: "Get a response from your team right away.", href: "/owner/forms", icon: Send },
+    { done: hasDocument, title: "Upload your first document", description: "Keep policies and records in one place.", href: "/owner/documents/upload", icon: Upload },
+  ];
+  const nextStep = setupSteps.find((s) => !s.done) ?? null;
+
   return (
     <PageShell role="owner" title="Operations Dashboard" subtitle="Manage your team, clients, and compliance" userName={profile?.full_name}>
       <div className="space-y-4 max-w-6xl">
+        {/* Onboarding */}
+        <WelcomeBanner companyName={companyName} />
+        <SetupChecklist
+          hasBranding={hasBranding}
+          hasLicense={hasLicense}
+          hasForm={hasForm}
+          hasFormSent={hasFormSent}
+          hasDocument={hasDocument}
+        />
+        {nextStep && (
+          <NextStepCard
+            title={nextStep.title}
+            description={nextStep.description}
+            href={nextStep.href}
+            icon={nextStep.icon}
+          />
+        )}
+
         {/* Alert bars */}
         {expiredLicense && (
           <div className="w-full bg-warning-bg border border-warning-border rounded-lg px-4 py-3 flex items-center gap-3">
