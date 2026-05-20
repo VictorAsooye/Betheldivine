@@ -60,25 +60,6 @@ function badge(text: string, color: string, bg: string) {
 
 // ── Templates ────────────────────────────────────────────────────────────────
 
-export function welcomeTemplate(data: { name: string; role: string; loginUrl: string }) {
-  const roleName = data.role.charAt(0).toUpperCase() + data.role.slice(1);
-  return {
-    subject: "Your Bethel Divine account is ready",
-    html: branded(`
-      ${h1(`Welcome, ${data.name}!`)}
-      ${p("Your Bethel Divine Healthcare Services account has been created and is ready to use.")}
-      ${divider()}
-      ${h2("Your Access Level")}
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        ${badge(roleName, "#2d8a5e", "#f0faf5")}
-      </div>
-      ${p(`You have been assigned the <strong>${roleName}</strong> role, which gives you access to the features and dashboards relevant to your position.`)}
-      ${btn("Sign In to Your Account", data.loginUrl)}
-      ${muted("If you did not expect this email, please contact your administrator immediately.")}
-    `),
-  };
-}
-
 export function roleAssignedTemplate(data: { name: string; newRole: string; loginUrl: string }) {
   const roleName = data.newRole.charAt(0).toUpperCase() + data.newRole.slice(1);
   return {
@@ -219,85 +200,6 @@ export function licenseExpiredTemplate(data: {
       </table>
       ${p("Please renew this license immediately and upload the updated certificate to the portal. Operating without a valid license may impact billing and compliance.")}
       ${btn("Update License Now", data.licenseUrl)}
-    `),
-  };
-}
-
-export function paymentReceiptTemplate(data: {
-  name: string;
-  amount: string;
-  date: string;
-  cardBrand: string;
-  cardLastFour: string;
-  billingMonth: string;
-  paymentUrl: string;
-}) {
-  return {
-    subject: "Payment confirmed — Bethel Divine Healthcare",
-    html: branded(`
-      <div style="background:#f0faf5;border-left:4px solid #2d8a5e;padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:24px;">
-        <div style="font-weight:700;color:#2d8a5e;font-size:14px;">✓ Payment Successful</div>
-      </div>
-      ${h1("Payment Confirmed")}
-      ${p(`Hi ${data.name}, your payment has been received. Thank you.`)}
-      ${divider()}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;width:160px;">Amount Paid</td>
-          <td style="padding:10px 0;font-size:22px;font-weight:700;color:#2d8a5e;font-family:Georgia,serif;">$${data.amount}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Payment Date</td>
-          <td style="padding:10px 0;font-size:14px;font-weight:600;color:#1a2e4a;">${data.date}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Method</td>
-          <td style="padding:10px 0;font-size:14px;color:#1a2e4a;">${data.cardBrand} ending in ${data.cardLastFour}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Covers</td>
-          <td style="padding:10px 0;font-size:14px;font-weight:600;color:#1a2e4a;">${data.billingMonth} care services</td>
-        </tr>
-      </table>
-      ${p("We appreciate your prompt payment. It allows us to continue delivering high-quality care. View your full payment history in the portal.")}
-      ${btn("View Payment History", data.paymentUrl)}
-    `),
-  };
-}
-
-export function paymentOverdueTemplate(data: {
-  name: string;
-  amount: string;
-  dueDate: string;
-  billingMonth: string;
-  paymentUrl: string;
-}) {
-  return {
-    subject: "Balance overdue — action required",
-    html: branded(`
-      <div style="background:#fef2f2;border-left:4px solid #c0392b;padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:24px;">
-        <div style="font-weight:700;color:#c0392b;font-size:14px;">⚠ Balance Overdue</div>
-        <div style="font-size:13px;color:#c0392b;margin-top:4px;">Please pay your balance as soon as possible to avoid service interruption.</div>
-      </div>
-      ${h1("Balance Overdue")}
-      ${p(`Hi ${data.name}, your balance for ${data.billingMonth} is past due.`)}
-      ${divider()}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;width:160px;">Amount Due</td>
-          <td style="padding:10px 0;font-size:22px;font-weight:700;color:#c0392b;font-family:Georgia,serif;">$${data.amount}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Was Due By</td>
-          <td style="padding:10px 0;font-size:14px;font-weight:600;color:#c0392b;">${data.dueDate}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;font-size:14px;color:#8e9ab0;">Billing Month</td>
-          <td style="padding:10px 0;font-size:14px;color:#1a2e4a;">${data.billingMonth}</td>
-        </tr>
-      </table>
-      ${p("Please log in to your portal and pay your balance now. If you have questions about your bill or are experiencing financial difficulty, please contact us so we can assist you.")}
-      ${btn("Pay Now", data.paymentUrl)}
     `),
   };
 }
@@ -514,60 +416,3 @@ export function carePlanSubmittedTemplate(data: {
   };
 }
 
-export function invoiceTemplate(data: {
-  name: string;
-  billingMonth: string;
-  visits: { date: string; caregiver: string; hours: number; rate: number; subtotal: number }[];
-  total: number;
-  dueDate: string;
-  paymentUrl: string;
-}) {
-  const rows = data.visits
-    .map(
-      (v) => `
-    <tr style="border-bottom:1px solid #dce2ec;">
-      <td style="padding:10px 8px;font-size:13px;color:#1a2e4a;">${v.date}</td>
-      <td style="padding:10px 8px;font-size:13px;color:#1a2e4a;">${v.caregiver}</td>
-      <td style="padding:10px 8px;font-size:13px;text-align:center;color:#1a2e4a;">${v.hours.toFixed(2)}</td>
-      <td style="padding:10px 8px;font-size:13px;text-align:right;color:#8e9ab0;">$${v.rate.toFixed(2)}/hr</td>
-      <td style="padding:10px 8px;font-size:13px;font-weight:600;text-align:right;color:#1a2e4a;">$${v.subtotal.toFixed(2)}</td>
-    </tr>`
-    )
-    .join("");
-
-  return {
-    subject: `Invoice from Bethel Divine Healthcare — ${data.billingMonth}`,
-    html: branded(`
-      ${h1(`Invoice — ${data.billingMonth}`)}
-      ${p(`Hi ${data.name}, please find your invoice for care services rendered during ${data.billingMonth}.`)}
-      ${divider()}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
-        <thead>
-          <tr style="border-bottom:2px solid #1a2e4a;">
-            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-align:left;color:#8e9ab0;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
-            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-align:left;color:#8e9ab0;text-transform:uppercase;letter-spacing:0.5px;">Caregiver</th>
-            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-align:center;color:#8e9ab0;text-transform:uppercase;letter-spacing:0.5px;">Hours</th>
-            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-align:right;color:#8e9ab0;text-transform:uppercase;letter-spacing:0.5px;">Rate</th>
-            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-align:right;color:#8e9ab0;text-transform:uppercase;letter-spacing:0.5px;">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr style="border-top:2px solid #1a2e4a;background:#f7f9fc;">
-            <td colspan="4" style="padding:14px 8px;font-size:15px;font-weight:700;color:#1a2e4a;">Total Due</td>
-            <td style="padding:14px 8px;font-size:18px;font-weight:700;text-align:right;color:#1a2e4a;font-family:Georgia,serif;">$${data.total.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-      ${divider()}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          <td style="padding:8px 0;font-size:14px;color:#8e9ab0;width:120px;">Due Date</td>
-          <td style="padding:8px 0;font-size:14px;font-weight:600;color:#1a2e4a;">${data.dueDate}</td>
-        </tr>
-      </table>
-      ${btn("Pay Invoice Now", data.paymentUrl)}
-      ${muted("Questions about this invoice? Contact us at billing@betheldivine.com")}
-    `),
-  };
-}

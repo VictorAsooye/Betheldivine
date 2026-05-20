@@ -43,7 +43,27 @@ export async function GET() {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // Run expiry notifications for all returned licenses (same logic as POST)
+  const licenses = data ?? [];
+  for (const license of licenses) {
+    try {
+      const holderProfile = (license as { profiles?: { full_name?: string; email?: string } }).profiles;
+      await checkAndSendNotifications(
+        supabase,
+        license.id,
+        license.license_name,
+        license.expiry_date,
+        license.holder_id,
+        holderProfile?.full_name ?? "Employee",
+        holderProfile?.email ?? null
+      );
+    } catch (notifyErr) {
+      console.warn("[licenses GET] notification check failed for", license.id, notifyErr);
+    }
+  }
+
+  return NextResponse.json(licenses);
 }
 
 export async function POST(request: NextRequest) {

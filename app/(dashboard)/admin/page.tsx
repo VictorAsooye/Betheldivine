@@ -108,8 +108,7 @@ export default async function AdminDashboard() {
                 <ActionLink href="/admin/users" label="Manage Users & Roles" />
                 <ActionLink href="/admin/licenses" label="License Tracker" />
                 <ActionLink href="/admin/forms" label="Create Form with AI" />
-                <ActionLink href="/admin/audit" label="View Audit Log" />
-                <ActionLink href="/admin/settings" label="System Settings" />
+                <ActionLink href="/admin/documents" label="Documents" />
               </div>
             </div>
 
@@ -124,11 +123,10 @@ export default async function AdminDashboard() {
               <p className="text-xs font-sans mb-4" style={{ color: "#8e9ab0" }}>
                 Preview the portal exactly as each role sees it — without logging out.
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   { role: "owner",    href: "/owner",    label: "Owner",    icon: "👔", color: "#7c3aed", bg: "#f7f0fa", border: "#d8b4fe" },
                   { role: "employee", href: "/employee", label: "Employee", icon: "🩺", color: "#2d8a5e", bg: "#f0faf5", border: "#a7dfc4" },
-                  { role: "client",   href: "/client",   label: "Client",   icon: "🏠", color: "#2AADAD", bg: "#f0f8fa", border: "#a5d4dc" },
                 ].map((item) => (
                   <Link key={item.role} href={item.href}
                     className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border text-center transition-all hover:shadow-md"
@@ -176,8 +174,7 @@ export default async function AdminDashboard() {
               {[
                 { label: "Supabase Database", status: "Operational" },
                 { label: "Authentication", status: "Operational" },
-                { label: "Stripe Payments", status: "Operational" },
-                { label: "EVV Integration", status: process.env.MARYLAND_EVV_API_KEY && process.env.MARYLAND_EVV_API_KEY !== "your_evv_api_key" ? "Operational" : "Needs Setup" },
+                { label: "Email (Resend)", status: "Operational" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <span className="text-sm font-sans" style={{ color: "#1a2e4a" }}>{item.label}</span>

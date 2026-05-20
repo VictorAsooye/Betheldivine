@@ -124,12 +124,38 @@ export async function POST(req: NextRequest) {
     // Only insert if upload succeeded. If DB insert fails, delete the
     // orphaned file from storage so the two never drift out of sync.
     if (uploadedPath) {
+      // Attempt to resolve client_id from the form data client name
+      let resolvedClientId: string | null = null;
+      try {
+        const formClientName = String((data as Record<string, unknown>)["client_full_name"] ?? "").trim();
+        if (formClientName) {
+          const { data: clientRows } = await service
+            .from("clients")
+            .select("id, profiles!clients_profile_id_fkey(full_name)")
+            .limit(200);
+          if (clientRows) {
+            const match = (clientRows as Array<{ id: string; profiles?: { full_name?: string } | null }>).find(
+              (c) =>
+                (c.profiles?.full_name ?? "").toLowerCase().trim() ===
+                formClientName.toLowerCase()
+            );
+            if (match) {
+              resolvedClientId = match.id;
+            } else {
+              console.warn("[static-forms] No client found matching name:", formClientName);
+            }
+          }
+        }
+      } catch (lookupErr) {
+        console.warn("[static-forms] client_id lookup failed:", lookupErr);
+      }
+
       try {
         const { error: docErr } = await service
           .from("care_plan_documents")
           .insert({
             care_plan_submission_id: inserted.id,
-            client_id: null,              // no UUID in form data; backfillable later
+            client_id: resolvedClientId,
             storage_path: uploadedPath,
             filename,
             file_size_bytes: pdfBuffer.length,

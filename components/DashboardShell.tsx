@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import NotificationBell from "@/components/NotificationBell";
-import PushPromptModal from "@/components/PushPromptModal";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -66,7 +65,6 @@ export default function DashboardShell({ children, role, fullName }: DashboardSh
         </main>
       </div>
 
-      <PushPromptModal />
     </div>
   );
 }
