@@ -1,16 +1,15 @@
-import FormsPage from "@/components/FormsPage";
+import { createClient } from "@/lib/supabase/server";
+import PageShell from "@/components/layout/PageShell";
+import FormsManager from "@/components/forms/FormsManager";
 
-interface Props {
-  searchParams: Promise<{ open?: string; prefill_name?: string }>;
-}
+export default async function OwnerFormsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
 
-export default async function Page({ searchParams }: Props) {
-  const params = await searchParams;
   return (
-    <FormsPage
-      role="owner"
-      autoOpenForm={params.open}
-      prefillClientName={params.prefill_name}
-    />
+    <PageShell role="owner" title="Forms" subtitle="Build, send, and track forms" userName={profile?.full_name}>
+      <FormsManager role="owner" />
+    </PageShell>
   );
 }

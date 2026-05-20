@@ -13,7 +13,7 @@ export async function GET(
 
   const { data, error } = await service
     .from("forms")
-    .select("id, name, description, schema, target_role")
+    .select("id, name, description, schema, target_role, created_by")
     .eq("id", params.id)
     .eq("is_active", true)
     .single();
@@ -22,7 +22,18 @@ export async function GET(
     return NextResponse.json({ error: "Form not found or no longer active" }, { status: 404 });
   }
 
-  return NextResponse.json(data);
+  // Best-effort branding lookup so the public form can render the agency header.
+  let branding: Record<string, unknown> | null = null;
+  if (data.created_by) {
+    const { data: b } = await service
+      .from("company_branding")
+      .select("company_name, tagline, address, email, logo_storage_path, brand_color")
+      .eq("org_id", data.created_by)
+      .maybeSingle();
+    branding = b ?? null;
+  }
+
+  return NextResponse.json({ ...data, branding });
 }
 
 export async function POST(

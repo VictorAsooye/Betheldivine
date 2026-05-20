@@ -4,11 +4,28 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import FormRenderer, { type FormSchema } from "@/components/FormRenderer";
 
+interface Branding {
+  company_name?: string | null;
+  tagline?: string | null;
+  address?: string | null;
+  email?: string | null;
+  logo_storage_path?: string | null;
+  brand_color?: string | null;
+}
+
 interface PublicForm {
   id: string;
   name: string;
   description?: string;
   schema: FormSchema;
+  branding?: Branding | null;
+}
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+function logoPublicUrl(path?: string | null): string | null {
+  if (!path) return null;
+  return `${SUPABASE_URL}/storage/v1/object/public/branding/${path}`;
 }
 
 export default function PublicFormPage({ params }: { params: Promise<{ id: string }> }) {
@@ -93,11 +110,44 @@ export default function PublicFormPage({ params }: { params: Promise<{ id: strin
 
         {!loading && !notFound && !submitted && form && (
           <>
+            {/* Branded header */}
+            <div className="bg-navy px-6 py-4 flex items-center justify-between" style={{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }}>
+              <div className="flex items-center gap-3">
+                {logoPublicUrl(form.branding?.logo_storage_path) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoPublicUrl(form.branding?.logo_storage_path)!} alt="Logo" className="w-8 h-8 rounded-md object-contain" />
+                ) : (
+                  <div className="w-8 h-8 rounded-md bg-gold flex items-center justify-center" style={{ fontFamily: "Georgia, serif" }}>
+                    <span className="text-navy font-bold">B</span>
+                  </div>
+                )}
+                <div>
+                  <p className="text-white font-medium text-[14px]">{form.branding?.company_name ?? "Bethel Divine Healthcare"}</p>
+                  {form.branding?.tagline && <p className="text-white/60 text-[12px]">{form.branding.tagline}</p>}
+                </div>
+              </div>
+              <div className="text-right">
+                {form.branding?.address && <p className="text-white/60 text-[11px]">{form.branding.address}</p>}
+                {form.branding?.email && <p className="text-white/60 text-[11px]">{form.branding.email}</p>}
+              </div>
+            </div>
+            {/* Gold title bar */}
+            <div className="bg-gold py-2 px-6">
+              <p className="text-navy text-[14px] font-semibold">{form.name}</p>
+            </div>
+
             <FormRenderer
               schema={form.schema}
               onSubmit={handleSubmit}
               submitting={submitting}
             />
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-line flex justify-between text-[11px] text-muted">
+              <span>{form.branding?.company_name ?? "Bethel Divine Healthcare"}</span>
+              <span>Form ID: {form.id.substring(0, 8)} · Powered by Sola</span>
+            </div>
+
             {error && (
               <div style={{
                 marginTop: "12px", padding: "12px 16px", borderRadius: "8px",

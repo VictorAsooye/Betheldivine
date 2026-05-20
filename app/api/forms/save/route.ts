@@ -56,13 +56,20 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, is_active } = body;
+  const { id, is_active, schema, name, description, target_role } = body;
 
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const updates: Record<string, unknown> = {};
+  if (is_active !== undefined) updates.is_active = is_active;
+  if (schema !== undefined) updates.schema = schema;
+  if (name !== undefined) updates.name = name;
+  if (description !== undefined) updates.description = description;
+  if (target_role !== undefined) updates.target_role = target_role;
+
   const { data, error } = await supabase
     .from("forms")
-    .update({ is_active })
+    .update(updates)
     .eq("id", id)
     .select()
     .single();

@@ -38,7 +38,15 @@ Rules:
 - Typical sections for employee forms: Personal Information, Emergency Contact, Employment Details, Availability, Certifications & Licenses, Health & Compliance, Signatures & Acknowledgment
 - Typical sections for client forms: Client Information, Medical History, Care Goals, Scheduled Services, Safety Considerations, Signatures & Authorization`;
 
-async function generateWithRetry(anthropic: Anthropic, prompt: string, targetRole: string, category: string): Promise<string> {
+const EDIT_SYSTEM_PROMPT =
+  "You are Sola AI, an assistant built into the Sola portal for home health agencies. Be concise and precise. You modify existing form schemas based on instructions. Return ONLY the updated JSON schema in the exact same format.";
+
+async function generateWithRetry(
+  anthropic: Anthropic,
+  prompt: string,
+  targetRole: string,
+  category: string
+): Promise<string> {
   const userPrompt = `Create a form for a home healthcare agency with these requirements:
 Description: ${prompt}
 Target audience: ${targetRole}
@@ -47,9 +55,30 @@ Category: ${category}
 Generate a complete, professional form with all relevant fields.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const content = response.content[0];
+  if (content.type !== "text") throw new Error("Unexpected response type");
+  return content.text.trim();
+}
+
+async function editWithRetry(
+  anthropic: Anthropic,
+  prompt: string,
+  currentSchema: unknown
+): Promise<string> {
+  const userPrompt = `Current schema: ${JSON.stringify(
+    currentSchema
+  )}\n\nInstruction: ${prompt}\n\nReturn the complete updated schema as JSON.`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    system: EDIT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
   });
 
@@ -82,7 +111,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { prompt, target_role, category } = body;
+  const { prompt, target_role, category, mode, currentSchema } = body;
 
   if (!prompt) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
@@ -90,8 +119,12 @@ export async function POST(request: NextRequest) {
 
   const anthropic = new Anthropic({ apiKey });
 
+  const isEdit = mode === "edit" && currentSchema;
+
   try {
-    let raw = await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
+    let raw = isEdit
+      ? await editWithRetry(anthropic, prompt, currentSchema)
+      : await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
 
     // Strip markdown code fences if present (safety net)
     raw = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
@@ -103,7 +136,9 @@ export async function POST(request: NextRequest) {
       // If truncated mid-JSON, try closing it before retrying
       // (e.g. max_tokens hit mid-string — bump max_tokens if this keeps happening)
       console.error("[AI] JSON parse failed, raw length:", raw.length);
-      const raw2 = await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
+      const raw2 = isEdit
+        ? await editWithRetry(anthropic, prompt, currentSchema)
+        : await generateWithRetry(anthropic, prompt, target_role ?? "all", category ?? "Other");
       const cleaned = raw2.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
       schema = JSON.parse(cleaned);
     }

@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import DashboardShell from "@/components/DashboardShell";
-import ViewAsBanner from "@/components/ViewAsBanner";
 
 export default async function DashboardLayout({
   children,
@@ -19,7 +17,7 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("role")
     .eq("id", user.id)
     .single();
 
@@ -27,10 +25,7 @@ export default async function DashboardLayout({
     redirect("/pending");
   }
 
-  return (
-    <DashboardShell role={profile.role} fullName={profile.full_name}>
-      <ViewAsBanner adminRole={profile.role} />
-      {children}
-    </DashboardShell>
-  );
+  // Each page renders its own PageShell (sidebar + topbar). The layout only
+  // enforces auth and the pending-role redirect.
+  return <>{children}</>;
 }

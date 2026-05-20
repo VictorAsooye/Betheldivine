@@ -1,199 +1,256 @@
-import PageHeader from "@/components/PageHeader";
-import StatCard from "@/components/StatCard";
-import ActionLink from "@/components/ActionLink";
-import CarePlanStatusWidget from "@/components/CarePlanStatusWidget";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import PageShell from "@/components/layout/PageShell";
 import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
+import {
+  AlertTriangle,
+  FileText,
+  FolderOpen,
+  Shield,
+  Mail,
+  Activity,
+} from "lucide-react";
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function statusFromExpiry(expiry: string): "expired" | "soon" | "current" {
+  const days = Math.floor((new Date(expiry).getTime() - Date.now()) / 86400000);
+  if (days < 0) return "expired";
+  if (days <= 30) return "soon";
+  return "current";
+}
+
+function expiryBadge(expiry: string) {
+  const s = statusFromExpiry(expiry);
+  const days = Math.floor((new Date(expiry).getTime() - Date.now()) / 86400000);
+  if (s === "expired") return { cls: "bg-danger-bg text-danger-text", dot: "#991B1B", label: `${Math.abs(days)}d overdue` };
+  if (s === "soon") return { cls: "bg-warning-bg text-warning-text", dot: "#92400E", label: `${days}d left` };
+  return { cls: "bg-success-bg text-success-text", dot: "#065F46", label: `${days}d left` };
+}
+
+interface AuditRow {
+  id: string;
+  action: string;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
+  actor_id: string | null;
+}
+
+interface LicenseRow {
+  id: string;
+  license_name: string;
+  expiry_date: string;
+  profiles?: { full_name?: string } | null;
+}
+
+const auditIcon: Record<string, { Icon: typeof FileText; bg: string; text: string }> = {
+  form_submitted: { Icon: FileText, bg: "bg-info-bg", text: "text-info-text" },
+  form_sent: { Icon: FileText, bg: "bg-info-bg", text: "text-info-text" },
+  document_uploaded: { Icon: FolderOpen, bg: "bg-success-bg", text: "text-success-text" },
+  license_created: { Icon: Shield, bg: "bg-warning-bg", text: "text-warning-text" },
+  EMAIL_SENT: { Icon: Mail, bg: "bg-slateWash", text: "text-slate" },
+};
 
 export default async function AdminDashboard() {
-  // Use service role so RLS never filters out rows from the counts
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  const profilePromise = user
+    ? service.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
   const [
-    [{ count: userCount }, { count: employeeCount }, { count: clientCount }, { count: pendingCount }, { count: licenseAlertCount }],
-    carePlanAlertData,
+    profileRes,
+    { count: formCount },
+    { count: submissionsThisWeek },
+    { count: licenseCount },
+    { count: licenseAttention },
+    { count: documentCount },
+    { count: folderCount },
+    { data: expiringLicenses },
+    { data: auditLogs },
+    carePlanData,
   ] = await Promise.all([
-    Promise.all([
-      service.from("profiles").select("*", { count: "exact", head: true }),
-      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
-      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
-      service.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pending"),
-      service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
-    ]),
+    profilePromise,
+    service.from("forms").select("*", { count: "exact", head: true }).eq("is_active", true),
+    service.from("form_submissions").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
+    service.from("licenses").select("*", { count: "exact", head: true }),
+    service.from("licenses").select("*", { count: "exact", head: true }).in("status", ["expiring_soon", "expired"]),
+    service.from("documents").select("*", { count: "exact", head: true }),
+    service.from("document_folders").select("*", { count: "exact", head: true }),
+    service
+      .from("licenses")
+      .select("id, license_name, expiry_date, profiles!licenses_holder_id_fkey(full_name)")
+      .order("expiry_date", { ascending: true })
+      .limit(4),
+    service
+      .from("audit_logs")
+      .select("id, action, created_at, metadata, actor_id")
+      .order("created_at", { ascending: false })
+      .limit(5),
     getCarePlanAlertData(),
   ]);
 
+  const profile = (profileRes as { data: { full_name?: string } | null }).data;
+  const licenses = (expiringLicenses as LicenseRow[] | null) ?? [];
+  const logs = (auditLogs as AuditRow[] | null) ?? [];
+
+  const actorIds = Array.from(new Set(logs.map((l) => l.actor_id).filter(Boolean))) as string[];
+  const { data: actors } = actorIds.length
+    ? await service.from("profiles").select("id, full_name").in("id", actorIds)
+    : { data: [] };
+  const actorMap = new Map(((actors as { id: string; full_name: string }[]) ?? []).map((a) => [a.id, a.full_name]));
+
+  const expiredLicense = licenses.find((l) => statusFromExpiry(l.expiry_date) === "expired");
+  const overdueCarePlan = carePlanData.stalePlans[0] ?? carePlanData.noPlans[0] ?? null;
+  const careRows = [...carePlanData.noPlans, ...carePlanData.stalePlans].slice(0, 5);
+
   return (
-    <div>
-      <PageHeader
-        title="Admin Dashboard"
-        subtitle="Full system overview and control"
-      />
+    <PageShell role="admin" title="Admin Dashboard" subtitle="Full system overview and control" userName={profile?.full_name}>
+      <div className="space-y-4 max-w-6xl">
+        {expiredLicense && (
+          <div className="w-full bg-warning-bg border border-warning-border rounded-lg px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="size-4 text-warning-text flex-shrink-0" />
+            <p className="text-[13px] text-warning-text">
+              {expiredLicense.license_name} held by {expiredLicense.profiles?.full_name ?? "Organization"} is expired — action needed.{" "}
+              <Link href="/admin/licenses" className="text-gold font-medium">Start renewal →</Link>
+            </p>
+          </div>
+        )}
+        {overdueCarePlan && (
+          <div className="w-full bg-warning-bg border border-warning-border rounded-lg px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="size-4 text-warning-text flex-shrink-0" />
+            <p className="text-[13px] text-warning-text">
+              {overdueCarePlan.clientName}&apos;s care plan is overdue —{" "}
+              {overdueCarePlan.status === "no_plan" ? "no plan on file" : `last updated ${overdueCarePlan.daysSincePlan} days ago`}.{" "}
+              <Link href="/admin/forms?open=client_care_plan" className="text-gold font-medium">Send form →</Link>
+            </p>
+          </div>
+        )}
 
-      <div className="p-8">
-        <CarePlanStatusWidget data={carePlanAlertData} role="admin" />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Total Users"
-            value={userCount ?? 0}
-            accent="#1a2e4a"
-            href="/admin/users"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Employees"
-            value={employeeCount ?? 0}
-            accent="#2d8a5e"
-            href="/admin/users"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Clients"
-            value={clientCount ?? 0}
-            accent="#2AADAD"
-            href="/admin/users"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Pending Review"
-            value={pendingCount ?? 0}
-            accent="#c8991a"
-            href="/admin/users"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="License Alerts"
-            value={licenseAlertCount ?? 0}
-            accent="#c0392b"
-            href="/admin/licenses"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            }
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/admin/forms" className="bg-paper border border-line2 rounded-xl p-5 block hover:border-gold transition">
+            <p className="text-2xl font-semibold text-ink">{formCount ?? 0}</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted mt-1">Forms</p>
+            <p className="text-[12px] text-ink3 mt-1">{submissionsThisWeek ?? 0} submitted this week</p>
+          </Link>
+          <Link href="/admin/licenses" className="bg-paper border border-line2 rounded-xl p-5 block hover:border-gold transition">
+            <p className="text-2xl font-semibold text-ink">{licenseCount ?? 0}</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted mt-1">Licenses</p>
+            <p className={`text-[12px] mt-1 ${(licenseAttention ?? 0) > 0 ? "text-warning-text" : "text-ink3"}`}>{licenseAttention ?? 0} need attention</p>
+          </Link>
+          <Link href="/admin/documents" className="bg-paper border border-line2 rounded-xl p-5 block hover:border-gold transition">
+            <p className="text-2xl font-semibold text-ink">{documentCount ?? 0}</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted mt-1">Documents</p>
+            <p className="text-[12px] text-ink3 mt-1">Across {folderCount ?? 0} folders</p>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border p-6" style={{ borderColor: "#dce2ec" }}>
-              <h2
-                className="text-base font-semibold mb-4"
-                style={{ color: "#1a2e4a", fontFamily: "var(--font-lora), Georgia, serif" }}
-              >
-                Quick Actions
-              </h2>
-              <div className="space-y-2">
-                <ActionLink href="/admin/users" label="Manage Users & Roles" />
-                <ActionLink href="/admin/licenses" label="License Tracker" />
-                <ActionLink href="/admin/forms" label="Create Form with AI" />
-                <ActionLink href="/admin/documents" label="Documents" />
-              </div>
-            </div>
-
-            {/* View As */}
-            <div className="bg-white rounded-xl border p-6" style={{ borderColor: "#dce2ec" }}>
-              <h2
-                className="text-base font-semibold mb-1"
-                style={{ color: "#1a2e4a", fontFamily: "var(--font-lora), Georgia, serif" }}
-              >
-                View As
-              </h2>
-              <p className="text-xs font-sans mb-4" style={{ color: "#8e9ab0" }}>
-                Preview the portal exactly as each role sees it — without logging out.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { role: "owner",    href: "/owner",    label: "Owner",    icon: "👔", color: "#7c3aed", bg: "#f7f0fa", border: "#d8b4fe" },
-                  { role: "employee", href: "/employee", label: "Employee", icon: "🩺", color: "#2d8a5e", bg: "#f0faf5", border: "#a7dfc4" },
-                ].map((item) => (
-                  <Link key={item.role} href={item.href}
-                    className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border text-center transition-all hover:shadow-md"
-                    style={{ borderColor: item.border, backgroundColor: item.bg }}>
-                    <span className="text-2xl">{item.icon}</span>
-                    <span className="text-sm font-semibold font-sans" style={{ color: item.color }}>{item.label}</span>
-                    <span className="text-xs font-sans" style={{ color: item.color, opacity: 0.7 }}>View dashboard</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {(licenseAlertCount ?? 0) > 0 && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: "#fef2f2", borderColor: "#fca5a5" }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="2" className="mt-0.5 shrink-0">
-                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-semibold font-sans" style={{ color: "#c0392b" }}>Licenses Requiring Attention</p>
-                      <p className="text-xs font-sans mt-0.5" style={{ color: "#c0392b" }}>
-                        {licenseAlertCount} license{(licenseAlertCount ?? 0) !== 1 ? "s" : ""} expiring soon or expired
-                      </p>
+          <div className="bg-paper border border-line2 rounded-xl p-5">
+            <h2 className="text-[13px] font-medium text-ink mb-2">Recent activity</h2>
+            {logs.length === 0 ? (
+              <p className="text-[12px] text-muted py-3">No recent activity.</p>
+            ) : (
+              <div className="divide-y divide-line">
+                {logs.map((log) => {
+                  const cfg = auditIcon[log.action] ?? { Icon: Activity, bg: "bg-paper2", text: "text-muted" };
+                  const Icon = cfg.Icon;
+                  const status = (log.metadata?.["status"] as string) ?? null;
+                  return (
+                    <div key={log.id} className="flex items-center gap-3 py-2">
+                      <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
+                        <Icon className={`w-3.5 h-3.5 ${cfg.text}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-ink2 font-medium capitalize">{log.action.replace(/_/g, " ").toLowerCase()}</p>
+                        <p className="text-[12px] text-muted truncate">{actorMap.get(log.actor_id ?? "") ?? "System"} · {relativeTime(log.created_at)}</p>
+                      </div>
+                      {status === "sent" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-success-bg text-success-text">sent</span>}
+                      {status === "failed" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-danger-bg text-danger-text">failed</span>}
                     </div>
-                  </div>
-                  <Link href="/admin/licenses"
-                    className="text-xs font-semibold font-sans px-3 py-1.5 rounded-lg shrink-0"
-                    style={{ backgroundColor: "#c0392b", color: "#ffffff" }}>
-                    View All
-                  </Link>
-                </div>
+                  );
+                })}
               </div>
             )}
-            <div className="bg-white rounded-xl border p-6" style={{ borderColor: "#dce2ec" }}>
-            <h2
-              className="text-base font-semibold mb-4"
-              style={{ color: "#1a2e4a", fontFamily: "var(--font-lora), Georgia, serif" }}
-            >
-              System Status
-            </h2>
-            <div className="space-y-3">
-              {[
-                { label: "Supabase Database", status: "Operational" },
-                { label: "Authentication", status: "Operational" },
-                { label: "Email (Resend)", status: "Operational" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm font-sans" style={{ color: "#1a2e4a" }}>{item.label}</span>
-                  <span
-                    className="text-xs font-semibold font-sans px-2 py-1 rounded-full"
-                    style={{
-                      color: item.status === "Operational" ? "#2d8a5e" : "#c0392b",
-                      backgroundColor: item.status === "Operational" ? "#f0faf5" : "#fef2f2",
-                    }}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
+
+          <div className="bg-paper border border-line2 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-[13px] font-medium text-ink">Licenses expiring</h2>
+              <Link href="/admin/licenses" className="text-[12px] text-gold">See all →</Link>
+            </div>
+            {licenses.length === 0 ? (
+              <p className="text-[12px] text-muted py-3">No licenses on file.</p>
+            ) : (
+              <div className="divide-y divide-line">
+                {licenses.map((l) => {
+                  const badge = expiryBadge(l.expiry_date);
+                  return (
+                    <div key={l.id} className="flex items-center gap-3 py-2">
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: badge.dot }} className="flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-ink2 truncate">{l.license_name}</p>
+                        <p className="text-[12px] text-muted truncate">{l.profiles?.full_name ?? "Organization"}</p>
+                      </div>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
+
+        <div className="bg-paper border border-line2 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-[13px] font-medium text-ink">Care plan status</h2>
+            <span className="bg-slateWash text-slate text-[10px] px-2 py-0.5 rounded-full">Auto-tracked</span>
+          </div>
+          {careRows.length === 0 ? (
+            <p className="text-[12px] text-muted py-2">All client care plans are current.</p>
+          ) : (
+            <div className="divide-y divide-line">
+              {careRows.map((c) => {
+                const isStale = c.status === "no_plan" || c.status === "stale";
+                return (
+                  <div key={c.clientId} className="flex items-center gap-3 py-2">
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: isStale ? "#991B1B" : "#065F46" }} className="flex-shrink-0" />
+                    <p className="text-[13px] text-ink2 flex-1 min-w-0 truncate">{c.clientName}</p>
+                    <span className={`text-[12px] ${isStale ? "text-danger-text" : "text-success-text"}`}>
+                      {c.status === "no_plan" ? "No plan" : c.status === "stale" ? "Overdue" : "Current"}
+                    </span>
+                    <span className="text-[12px] text-muted w-24 text-right">{c.status === "no_plan" ? "Never" : `${c.daysSincePlan}d ago`}</span>
+                    {isStale ? (
+                      <Link href={`/admin/forms?open=client_care_plan&prefill_name=${encodeURIComponent(c.clientName)}`} className="text-gold text-[12px] w-24 text-right">Send form →</Link>
+                    ) : (
+                      <span className="text-muted text-[12px] w-24 text-right">Current</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

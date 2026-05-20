@@ -1,2 +1,15 @@
-import DocumentsPage from "@/components/DocumentsPage";
-export default function Page() { return <DocumentsPage role="owner" />; }
+import { createClient } from "@/lib/supabase/server";
+import PageShell from "@/components/layout/PageShell";
+import DocumentsBrowser from "@/components/documents/DocumentsBrowser";
+
+export default async function OwnerDocumentsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
+
+  return (
+    <PageShell role="owner" title="Documents" subtitle="Files, folders, and care plans" userName={profile?.full_name}>
+      <DocumentsBrowser role="owner" />
+    </PageShell>
+  );
+}
