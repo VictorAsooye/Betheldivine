@@ -8,7 +8,7 @@ export default async function OwnerLicensesPage() {
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
 
   return (
-    <PageShell role="owner" title="Licenses" subtitle="Track and renew certifications" userName={profile?.full_name}>
+    <PageShell role="owner" title="Licenses" subtitle="Track and renew certifications" userName={profile?.full_name} backHref="/owner/documents" backLabel="File Cabinet">
       <LicensesManager role="owner" />
     </PageShell>
   );

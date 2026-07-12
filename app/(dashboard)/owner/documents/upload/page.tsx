@@ -8,7 +8,7 @@ export default async function OwnerUploadPage() {
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
 
   return (
-    <PageShell role="owner" title="Upload documents" subtitle="Sola AI files them for you" userName={profile?.full_name}>
+    <PageShell role="owner" title="Upload documents" subtitle="Sola AI files them for you" userName={profile?.full_name} backHref="/owner/documents" backLabel="File Cabinet">
       <DocumentUploader role="owner" />
     </PageShell>
   );

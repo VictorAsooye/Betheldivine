@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/layout/PageShell";
 import { getCarePlanSignedUrl } from "@/lib/care-plans/actions";
 
 const NAVY  = "#1a2e4a";
@@ -45,7 +45,12 @@ function nameFromFilename(filename: string): string {
   return filename;
 }
 
-export default function CarePlansLibrary() {
+interface CarePlansLibraryProps {
+  role: "admin" | "owner" | "employee";
+  userName?: string | null;
+}
+
+export default function CarePlansLibrary({ role, userName }: CarePlansLibraryProps) {
   const [docs, setDocs]           = useState<CarePlanDoc[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -145,13 +150,15 @@ export default function CarePlansLibrary() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <PageHeader
-        title="Care Plans"
-        subtitle="Archived care plan PDFs — owner, admin, and employee access only"
-      />
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
+    <PageShell
+      role={role}
+      title="Care Plans"
+      subtitle="Archived care plan PDFs — owner, admin, and employee access only"
+      userName={userName}
+      backHref={`/${role}/documents`}
+      backLabel="File Cabinet"
+    >
+      <div style={{ padding: "4px" }}>
 
         {/* Action error banner */}
         {actionError && (
@@ -506,6 +513,6 @@ export default function CarePlansLibrary() {
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </PageShell>
   );
 }

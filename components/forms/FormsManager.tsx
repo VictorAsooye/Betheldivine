@@ -40,7 +40,8 @@ export default function FormsManager({ role }: { role: Role }) {
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // AI builder
+  // AI builder — collapsed by default so the tab opens on forms already on file
+  const [showBuilder, setShowBuilder] = useState(false);
   const [target, setTarget] = useState("employee");
   const [category, setCategory] = useState("Intake");
   const [prompt, setPrompt] = useState("");
@@ -104,6 +105,7 @@ export default function FormsManager({ role }: { role: Role }) {
       setEditorNew(true);
       setMessages([{ role: "ai", text: "I've drafted your form. Use the suggestions or ask me to change anything." }]);
       setPrompt("");
+      setShowBuilder(false);
     } catch (e) {
       setBuilderError(e instanceof Error ? e.message : "Failed to generate form");
     } finally {
@@ -225,48 +227,64 @@ export default function FormsManager({ role }: { role: Role }) {
         <div className="fixed bottom-6 right-6 z-[60] bg-navy text-white text-[13px] px-4 py-2.5 rounded-lg shadow-lg">{toast}</div>
       )}
 
-      {/* AI builder */}
-      <div className="bg-slateWash border border-slate/20 rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <Sparkles className="w-6 h-6 text-slate flex-shrink-0" />
-          <div>
-            <p className="text-[15px] font-medium text-ink">Create forms with Sola AI</p>
-            <p className="text-[13px] text-muted">Describe what you need — built in seconds</p>
+      {/* AI builder — collapsed behind a toggle so the tab opens on forms on file */}
+      {showBuilder ? (
+        <div className="bg-slateWash border border-slate/20 rounded-xl p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-6 h-6 text-slate flex-shrink-0" />
+              <div>
+                <p className="text-[15px] font-medium text-ink">Create forms with Sola AI</p>
+                <p className="text-[13px] text-muted">Describe what you need — built in seconds</p>
+              </div>
+            </div>
+            <button onClick={() => setShowBuilder(false)} className="text-muted hover:text-ink flex-shrink-0"><X className="w-4 h-4" /></button>
           </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <select value={target} onChange={(e) => setTarget(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
+              <option value="employee">Employee</option>
+              <option value="client">Client</option>
+              <option value="all">All</option>
+            </select>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
+              {["Intake", "Compliance", "Clinical", "Administrative", "Other"].map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Describe the form you need..."
+            className="w-full mt-3 bg-paper border border-line2 rounded-lg p-3 text-[13px] text-ink min-h-[80px] outline-none"
+          />
+          {builderError && <p className="text-[12px] text-danger-text mt-2">{builderError}</p>}
+          <button
+            onClick={handleGenerate}
+            disabled={generating || !prompt.trim()}
+            className="mt-3 bg-slate text-white rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50 flex items-center gap-2"
+          >
+            {generating && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+            {generating ? "Generating…" : "Generate"}
+          </button>
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <select value={target} onChange={(e) => setTarget(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
-            <option value="employee">Employee</option>
-            <option value="client">Client</option>
-            <option value="all">All</option>
-          </select>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
-            {["Intake", "Compliance", "Clinical", "Administrative", "Other"].map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe the form you need..."
-          className="w-full mt-3 bg-paper border border-line2 rounded-lg p-3 text-[13px] text-ink min-h-[80px] outline-none"
-        />
-        {builderError && <p className="text-[12px] text-danger-text mt-2">{builderError}</p>}
+      ) : (
         <button
-          onClick={handleGenerate}
-          disabled={generating || !prompt.trim()}
-          className="mt-3 bg-slate text-white rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50 flex items-center gap-2"
+          onClick={() => setShowBuilder(true)}
+          className="w-full flex items-center gap-3 bg-paper border border-dashed border-line2 rounded-xl p-4 text-left hover:border-slate/40"
         >
-          {generating && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-          {generating ? "Generating…" : "Generate"}
+          <Sparkles className="w-5 h-5 text-slate flex-shrink-0" />
+          <div>
+            <p className="text-[14px] font-medium text-ink">Create a new form with Sola AI</p>
+            <p className="text-[12px] text-muted">Describe what you need — built in seconds</p>
+          </div>
         </button>
-      </div>
+      )}
 
       {/* Form list */}
       {loading ? (
         <p className="text-[13px] text-muted">Loading forms…</p>
       ) : forms.length === 0 ? (
         <div className="bg-paper border border-line2 rounded-xl p-8 text-center">
-          <p className="text-[13px] text-muted">No forms yet. Use Sola AI above to create one.</p>
+          <p className="text-[13px] text-muted">No forms yet. Use &quot;Create a new form&quot; above to get started.</p>
         </div>
       ) : (
         <div>

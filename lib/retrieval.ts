@@ -12,13 +12,17 @@ export interface RetrievedChunk {
 
 // Embeds the question and runs vector similarity search via the
 // match_document_embeddings RPC (RLS-scoped to the caller's session —
-// admin/owner only, per the document_embeddings policy).
+// admin/owner see everything, other roles see only their own owner_id
+// plus org-wide (owner_id IS NULL) chunks, per the document_embeddings policy).
 export async function retrieveContext(
   supabase: SupabaseClient,
   question: string
 ): Promise<RetrievedChunk[]> {
   const queryVector = await embedQuery(question);
-  if (!queryVector) return [];
+  if (!queryVector) {
+    console.error("[retrieval] embedQuery returned null — see [voyage] log above for cause. Returning no context.");
+    return [];
+  }
 
   const { data, error } = await supabase.rpc("match_document_embeddings", {
     query_embedding: `[${queryVector.join(",")}]`,

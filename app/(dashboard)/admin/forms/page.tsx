@@ -8,7 +8,7 @@ export default async function AdminFormsPage() {
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
 
   return (
-    <PageShell role="admin" title="Forms" subtitle="Build, send, and track forms" userName={profile?.full_name}>
+    <PageShell role="admin" title="Forms" subtitle="Forms on file — send, track, and manage" userName={profile?.full_name}>
       <FormsManager role="admin" />
     </PageShell>
   );

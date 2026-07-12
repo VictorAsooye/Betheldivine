@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   LogOut,
+  ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +28,8 @@ interface TopNavProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  backHref?: string;
+  backLabel?: string;
 }
 
 const NAV: Record<Role, NavItem[]> = {
@@ -63,7 +66,7 @@ function isActiveHref(pathname: string, href: string, role: Role): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export default function TopNav({ role, userName, title, subtitle, actions }: TopNavProps) {
+export default function TopNav({ role, userName, title, subtitle, actions, backHref, backLabel }: TopNavProps) {
   const pathname = usePathname();
   const items = NAV[role] ?? [];
   const [menuOpen, setMenuOpen] = useState(false);
@@ -151,6 +154,15 @@ export default function TopNav({ role, userName, title, subtitle, actions }: Top
       {/* Page title row */}
       <div className="flex items-end justify-between gap-4 px-6 py-4 border-t border-line">
         <div className="min-w-0">
+          {backHref && (
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1 text-[12px] text-muted hover:text-ink mb-1"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              {backLabel ?? "Back"}
+            </Link>
+          )}
           <h1 className="text-[22px] text-ink leading-tight truncate" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
             {title}
           </h1>

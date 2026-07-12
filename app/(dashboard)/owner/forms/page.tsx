@@ -8,7 +8,7 @@ export default async function OwnerFormsPage() {
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
 
   return (
-    <PageShell role="owner" title="Forms" subtitle="Build, send, and track forms" userName={profile?.full_name}>
+    <PageShell role="owner" title="Forms" subtitle="Forms on file — send, track, and manage" userName={profile?.full_name}>
       <FormsManager role="owner" />
     </PageShell>
   );

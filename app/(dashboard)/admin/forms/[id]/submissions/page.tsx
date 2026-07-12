@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/layout/PageShell";
 
 interface Submission {
   id: string;
@@ -26,15 +25,18 @@ export default function AdminFormSubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/forms").then((r) => r.json()),
       fetch(`/api/forms/${formId}/submissions`).then((r) => r.json()),
-    ]).then(([forms, subs]) => {
+      fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)),
+    ]).then(([forms, subs, me]) => {
       const f = Array.isArray(forms) ? forms.find((x: Form) => x.id === formId) : null;
       setForm(f ?? null);
       setSubmissions(Array.isArray(subs) ? subs : []);
+      setUserName(me?.full_name ?? null);
       setLoading(false);
     });
   }, [formId]);
@@ -42,20 +44,15 @@ export default function AdminFormSubmissionsPage() {
   const fields = form?.schema?.fields ?? [];
 
   return (
-    <div>
-      <PageHeader
-        title={form ? `${form.name} — Submissions` : "Form Submissions"}
-        subtitle={`${submissions.length} submission${submissions.length !== 1 ? "s" : ""}`}
-        action={
-          <Link href="/admin/forms"
-            className="text-sm font-sans font-semibold px-4 py-2 rounded-lg border"
-            style={{ borderColor: "#dce2ec", color: "#1a2e4a" }}>
-            ← Back to Forms
-          </Link>
-        }
-      />
-
-      <div className="p-8">
+    <PageShell
+      role="admin"
+      title={form ? `${form.name} — Submissions` : "Form Submissions"}
+      subtitle={`${submissions.length} submission${submissions.length !== 1 ? "s" : ""}`}
+      userName={userName}
+      backHref="/admin/forms"
+      backLabel="Forms"
+    >
+      <div>
         {loading ? (
           <p className="text-sm font-sans" style={{ color: "#8e9ab0" }}>Loading submissions…</p>
         ) : submissions.length === 0 ? (
@@ -118,7 +115,7 @@ export default function AdminFormSubmissionsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 

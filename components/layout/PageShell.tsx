@@ -7,6 +7,8 @@ interface PageShellProps {
   subtitle?: string;
   actions?: React.ReactNode;
   userName?: string | null;
+  backHref?: string;
+  backLabel?: string;
 }
 
 export default function PageShell({
@@ -16,10 +18,12 @@ export default function PageShell({
   subtitle,
   actions,
   userName,
+  backHref,
+  backLabel,
 }: PageShellProps) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-paper2">
-      <TopNav role={role} userName={userName} title={title} subtitle={subtitle} actions={actions} />
+      <TopNav role={role} userName={userName} title={title} subtitle={subtitle} actions={actions} backHref={backHref} backLabel={backLabel} />
       <main className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6">{children}</main>
     </div>
   );

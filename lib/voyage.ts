@@ -21,7 +21,11 @@ async function callVoyage(
   inputType: "document" | "query"
 ): Promise<ContextualizedEmbeddingsResponse["data"] | null> {
   const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey || inputs.length === 0) return null;
+  if (!apiKey) {
+    console.error("[voyage] VOYAGE_API_KEY is not set — embeddings and Sola Support retrieval will silently return no results.");
+    return null;
+  }
+  if (inputs.length === 0) return null;
 
   const response = await fetch(VOYAGE_URL, {
     method: "POST",
