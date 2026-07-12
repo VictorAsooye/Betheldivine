@@ -186,6 +186,7 @@ See `.env.example` for the full list with descriptions. The most critical:
 - `SUPABASE_SERVICE_ROLE_KEY` — bypasses RLS; server-side only, never expose to client
 - `STRIPE_WEBHOOK_SECRET` — validates Stripe webhook payloads; must match the registered endpoint
 - `ANTHROPIC_API_KEY` — used only in `/api/ai/*` routes; server-side only
+- `VOYAGE_API_KEY` — embeddings for the Sola Support RAG chat; server-side only, optional in dev
 - `VAPID_PRIVATE_KEY` — must never change after push subscriptions exist
 - `MARYLAND_EVV_API_KEY` — optional; EVV is skipped/logged locally if not set
 

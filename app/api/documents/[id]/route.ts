@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { deleteEmbeddings } from "@/lib/embeddings";
 
 const BUCKET = "documents";
 
@@ -121,5 +122,10 @@ export async function DELETE(
     .eq("id", params.id);
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+
+  await deleteEmbeddings("document", params.id).catch((err) =>
+    console.error("[documents DELETE] embedding cleanup failed for", params.id, err)
+  );
+
   return NextResponse.json({ success: true });
 }

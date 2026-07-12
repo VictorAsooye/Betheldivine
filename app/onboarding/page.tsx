@@ -60,6 +60,7 @@ export default function OnboardingPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [savingCompany, setSavingCompany] = useState(false);
+  const [companyError, setCompanyError] = useState<string | null>(null);
 
   // Step 2 — invites
   const [emailInput, setEmailInput] = useState("");
@@ -74,6 +75,7 @@ export default function OnboardingPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [assignTo, setAssignTo] = useState("organization");
   const [savingLicense, setSavingLicense] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | null>(null);
 
   // Step 4 — form
   const [formPrompt, setFormPrompt] = useState(
@@ -104,7 +106,11 @@ export default function OnboardingPage() {
   }
 
   async function completeOnboarding() {
-    await fetch("/api/onboarding/complete", { method: "POST" });
+    const res = await fetch("/api/onboarding/complete", { method: "POST" });
+    if (!res.ok) {
+      console.error("[onboarding] failed to mark onboarding complete", res.status);
+      return;
+    }
     router.push("/owner?welcome=1");
   }
 
@@ -127,7 +133,8 @@ export default function OnboardingPage() {
           .upload(path, logoFile, { upsert: true });
         if (!error) logoPath = path;
       }
-      await fetch("/api/settings/branding", {
+      setCompanyError(null);
+      const res = await fetch("/api/settings/branding", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,7 +146,13 @@ export default function OnboardingPage() {
           ...(logoPath ? { logo_storage_path: logoPath } : {}),
         }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Failed to save company details");
+      }
       setStep(2);
+    } catch (e) {
+      setCompanyError(e instanceof Error ? e.message : "Failed to save company details");
     } finally {
       setSavingCompany(false);
     }
@@ -167,16 +180,23 @@ export default function OnboardingPage() {
 
   async function saveInvites() {
     setSavingInvites(true);
+    setInviteError(null);
     try {
       if (pendingEmails.length > 0) {
-        await fetch("/api/admin/users/invite", {
+        const res = await fetch("/api/admin/users/invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ emails: pendingEmails }),
         });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.error ?? "Failed to send invites");
+        }
         setInvitedEmails(pendingEmails);
       }
       setStep(3);
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Failed to send invites");
     } finally {
       setSavingInvites(false);
     }
@@ -186,11 +206,12 @@ export default function OnboardingPage() {
   async function saveLicense() {
     if (!licenseType) return;
     setSavingLicense(true);
+    setLicenseError(null);
     try {
       const userId = await getUserId();
       const selected = LICENSE_TYPES.find((l) => l.key === licenseType);
       const holderType = selected?.holderType ?? "organization";
-      await fetch("/api/licenses", {
+      const res = await fetch("/api/licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -201,7 +222,13 @@ export default function OnboardingPage() {
           holder_id: userId,
         }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Failed to save license");
+      }
       setStep(4);
+    } catch (e) {
+      setLicenseError(e instanceof Error ? e.message : "Failed to save license");
     } finally {
       setSavingLicense(false);
     }
@@ -381,6 +408,7 @@ export default function OnboardingPage() {
               logoPreview={logoPreview}
               logoInputRef={logoInputRef}
               onLogoSelect={handleLogoSelect}
+              companyError={companyError}
             />
           )}
 
@@ -407,6 +435,7 @@ export default function OnboardingPage() {
               assignTo={assignTo}
               setAssignTo={setAssignTo}
               invitedEmails={invitedEmails}
+              licenseError={licenseError}
             />
           )}
 
@@ -496,6 +525,7 @@ function Step1(props: {
   logoPreview: string | null;
   logoInputRef: React.RefObject<HTMLInputElement>;
   onLogoSelect: (f: File) => void;
+  companyError: string | null;
 }) {
   return (
     <div>
@@ -584,6 +614,9 @@ function Step1(props: {
           </div>
         </Field>
       </div>
+      {props.companyError && (
+        <p className="text-[12px] text-danger-text mt-2">{props.companyError}</p>
+      )}
     </div>
   );
 }
@@ -676,6 +709,7 @@ function Step3(props: {
   assignTo: string;
   setAssignTo: (v: string) => void;
   invitedEmails: string[];
+  licenseError: string | null;
 }) {
   return (
     <div>
@@ -737,6 +771,9 @@ function Step3(props: {
             </select>
           </Field>
         </div>
+      )}
+      {props.licenseError && (
+        <p className="text-[12px] text-danger-text mt-2">{props.licenseError}</p>
       )}
     </div>
   );

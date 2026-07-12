@@ -22,6 +22,13 @@ export async function createClient() {
           }
         },
       },
+      global: {
+        // Next.js caches fetch() responses by default in Server Components.
+        // Auth/role reads must always be live — a stale cached role (e.g.
+        // from before a role change) causes redirect loops between
+        // middleware (always live) and pages using this client (was cached).
+        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
+      },
     }
   );
 }

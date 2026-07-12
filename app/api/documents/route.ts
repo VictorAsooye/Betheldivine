@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { extractText } from "@/lib/extract-text";
+import { embedAndStore } from "@/lib/embeddings";
+
+export const maxDuration = 60; // seconds — Vercel Hobby max; PDF/image extraction can be slow
 
 const BUCKET = "documents";
 
@@ -96,6 +100,14 @@ export async function POST(request: NextRequest) {
   if (dbError) {
     await service.storage.from(BUCKET).remove([storagePath]);
     return NextResponse.json({ error: dbError.message }, { status: 500 });
+  }
+
+  try {
+    const extracted = await extractText(bytes, file.type);
+    const embedContent = extracted || [description, file.name, category].filter(Boolean).join("\n");
+    await embedAndStore("document", data.id, embedContent, user.id);
+  } catch (embedErr) {
+    console.error("[documents] embedding failed for", data.id, embedErr);
   }
 
   return NextResponse.json(data, { status: 201 });

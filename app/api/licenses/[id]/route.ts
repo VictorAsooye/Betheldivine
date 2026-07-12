@@ -1,5 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { embedAndStore, deleteEmbeddings } from "@/lib/embeddings";
+
+function licenseEmbedContent(license: {
+  license_name: string;
+  issuing_authority: string;
+  license_number: string;
+  expiry_date: string;
+  notes: string | null;
+}): string {
+  return `${license.license_name} issued by ${license.issuing_authority}, number ${license.license_number}, expires ${license.expiry_date}. ${license.notes ?? ""}`;
+}
 
 function calcStatus(expiryDate: string): "active" | "expiring_soon" | "expired" {
   const expiry = new Date(expiryDate);
@@ -43,6 +54,13 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    await embedAndStore("license", data.id, licenseEmbedContent(data), data.holder_id);
+  } catch (embedErr) {
+    console.error("[licenses/[id]] embedding failed for", data.id, embedErr);
+  }
+
   return NextResponse.json(data);
 }
 
@@ -70,5 +88,10 @@ export async function DELETE(
     .eq("id", params.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await deleteEmbeddings("license", params.id).catch((err) =>
+    console.error("[licenses DELETE] embedding cleanup failed for", params.id, err)
+  );
+
   return NextResponse.json({ ok: true });
 }

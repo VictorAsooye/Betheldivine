@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { embedAndStore } from "@/lib/embeddings";
+
+function formEmbedContent(name: string, description: string | null, schema: unknown): string {
+  return [name, description ?? "", JSON.stringify(schema)].join("\n");
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -37,6 +42,13 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    await embedAndStore("form", data.id, formEmbedContent(data.name, data.description, data.schema));
+  } catch (embedErr) {
+    console.error("[forms/save] embedding failed for", data.id, embedErr);
+  }
+
   return NextResponse.json(data, { status: 201 });
 }
 
@@ -75,5 +87,14 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (schema !== undefined || name !== undefined || description !== undefined) {
+    try {
+      await embedAndStore("form", data.id, formEmbedContent(data.name, data.description, data.schema));
+    } catch (embedErr) {
+      console.error("[forms/save PATCH] embedding failed for", data.id, embedErr);
+    }
+  }
+
   return NextResponse.json(data);
 }

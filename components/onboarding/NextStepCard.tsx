@@ -1,24 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface NextStepCardProps {
   title: string;
   description: string;
   href: string;
-  icon: LucideIcon;
+  icon: ReactNode;
 }
 
 export default function NextStepCard({
   title,
   description,
   href,
-  icon: Icon,
+  icon,
 }: NextStepCardProps) {
   return (
     <div className="bg-slateWash border border-slate/20 rounded-xl p-5 flex items-center gap-4 mb-4">
-      <Icon className="w-8 h-8 text-slate flex-shrink-0" />
+      {icon}
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-medium text-ink">{title}</p>
         <p className="text-[13px] text-muted">{description}</p>

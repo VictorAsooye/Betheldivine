@@ -12,6 +12,7 @@ import {
   Download,
   Trash2,
   Plus,
+  Shield,
 } from "lucide-react";
 
 type Role = "admin" | "owner" | "employee";
@@ -141,6 +142,14 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
           <p className="text-[13px] font-medium text-ink">All files</p>
           <p className="text-[12px] text-muted">{docs.length} files</p>
         </button>
+        <Link
+          href={`/${role}/licenses`}
+          className="bg-paper border border-line2 rounded-xl p-4 text-left transition hover:border-gold"
+        >
+          <Shield className="w-5 h-5 text-gold mb-2" />
+          <p className="text-[13px] font-medium text-ink">Licenses &amp; Certs</p>
+          <p className="text-[12px] text-muted">Track expiring credentials</p>
+        </Link>
         {folders.map((f) => (
           <button
             key={f.id}

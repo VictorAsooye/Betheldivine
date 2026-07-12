@@ -2,6 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email/send";
 import { licenseExpiryTemplate, licenseExpiredTemplate } from "@/lib/email/templates";
+import { embedAndStore } from "@/lib/embeddings";
+
+function licenseEmbedContent(license: {
+  license_name: string;
+  issuing_authority: string;
+  license_number: string;
+  expiry_date: string;
+  notes: string | null;
+}): string {
+  return `${license.license_name} issued by ${license.issuing_authority}, number ${license.license_number}, expires ${license.expiry_date}. ${license.notes ?? ""}`;
+}
 
 function calcStatus(expiryDate: string): "active" | "expiring_soon" | "expired" {
   const now = new Date();
@@ -117,6 +128,12 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    await embedAndStore("license", data.id, licenseEmbedContent(data), data.holder_id);
+  } catch (embedErr) {
+    console.error("[licenses] embedding failed for", data.id, embedErr);
+  }
 
   // Fetch holder profile for email
   const { data: holderProfile } = await supabase

@@ -55,8 +55,9 @@ Category: ${category}
 Generate a complete, professional form with all relevant fields.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     max_tokens: 4096,
+    thinking: { type: "disabled" },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
   });
@@ -76,8 +77,9 @@ async function editWithRetry(
   )}\n\nInstruction: ${prompt}\n\nReturn the complete updated schema as JSON.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     max_tokens: 4096,
+    thinking: { type: "disabled" },
     system: EDIT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
   });

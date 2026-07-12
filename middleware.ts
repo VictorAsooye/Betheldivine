@@ -33,14 +33,36 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Authenticated: get role ──────────────────────────────
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, onboarding_complete")
     .eq("id", user.id)
     .single();
 
+  // PGRST116 = no row found, which is a legitimate "not yet assigned a
+  // role" state. Any other error (bad column, RLS misconfig, connection
+  // issue, etc.) is a real bug — treating it as "pending" would silently
+  // lock every affected user out of their dashboard with no visible cause.
+  // Fail open instead: log loudly and let the request through unchanged.
+  if (profileError && profileError.code !== "PGRST116") {
+    console.error("[middleware] profile query failed for user", user.id, profileError.message);
+    return supabaseResponse;
+  }
+
   const role = profile?.role ?? "pending";
   const home = ROLE_HOME[role] ?? "/pending";
+
+  // API routes handle their own auth/role checks internally (every route.ts
+  // calls supabase.auth.getUser() + checks profile.role itself) and must
+  // never receive a page redirect — a fetch() silently follows redirects
+  // and returns the redirected page's HTML with a 200 status, so the caller
+  // has no way to detect that its request never reached the intended route.
+  // This previously broke onboarding "skip" (its own completion POST got
+  // redirected back to /onboarding) and could affect any other API call
+  // made before onboarding completes or while a role is "pending".
+  if (pathname.startsWith("/api/")) {
+    return supabaseResponse;
+  }
 
   // Root → role home
   if (pathname === "/") {
@@ -63,9 +85,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // Pending users can only access /pending
+  // Pending users can only access /pending (API routes already excluded above)
   if (role === "pending") {
-    if (!pathname.startsWith("/pending") && !pathname.startsWith("/api/auth")) {
+    if (!pathname.startsWith("/pending")) {
       return NextResponse.redirect(new URL("/pending", request.url));
     }
     return supabaseResponse;
