@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   FileText,
   FolderOpen,
   Users,
   Settings,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +66,19 @@ function isActiveHref(pathname: string, href: string, role: Role): boolean {
 export default function TopNav({ role, userName, title, subtitle, actions }: TopNavProps) {
   const pathname = usePathname();
   const items = NAV[role] ?? [];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [menuOpen]);
 
   return (
     <header className="bg-paper border-b border-line2 flex-shrink-0">
@@ -77,8 +92,37 @@ export default function TopNav({ role, userName, title, subtitle, actions }: Top
             Bethel Divine Healthcare Services
           </p>
         </div>
-        <div className="w-8 h-8 rounded-full bg-slateWash flex items-center justify-center flex-shrink-0">
-          <span className="text-slate text-[12px] font-semibold">{initials(userName)}</span>
+        <div className="relative flex-shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className="w-8 h-8 rounded-full bg-slateWash flex items-center justify-center"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <span className="text-slate text-[12px] font-semibold">{initials(userName)}</span>
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-2 w-48 bg-paper border border-line2 rounded-lg shadow-lg py-1 z-50"
+            >
+              {userName && (
+                <p className="px-3 py-2 text-[13px] text-ink font-medium truncate border-b border-line2">
+                  {userName}
+                </p>
+              )}
+              <form action="/api/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-muted hover:text-ink hover:bg-slateWash transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
 
