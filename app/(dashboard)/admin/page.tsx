@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
   const overdueCarePlan = carePlanData.stalePlans[0] ?? carePlanData.noPlans[0] ?? null;
 
   return (
-    <PageShell role="admin" title="Admin Dashboard" subtitle="Full system overview and control" userName={profile?.full_name}>
+    <PageShell role="admin" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} userName={profile?.full_name}>
       <div className="space-y-4 max-w-6xl">
         {expiredLicense && (
           <div className="w-full bg-warning-bg border border-warning-border rounded-lg px-4 py-3 flex items-center gap-3">

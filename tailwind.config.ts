@@ -33,6 +33,8 @@ const config: Config = {
         gold:      "#C9A84C",
         slate:     "#4A5A7A",
         slateWash: "#EEF0F5",
+        sage:      "#56714F",
+        sageBg:    "#E9EEE6",
 
         // Semantic colors
         success: {

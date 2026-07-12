@@ -89,6 +89,21 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
     return list;
   }, [docs, selectedFolder, search]);
 
+  const recentDocs = useMemo(() => {
+    return [...docs]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [docs]);
+
+  function relativeTime(iso: string) {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (days <= 0) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) !== 1 ? "s" : ""} ago`;
+    return formatDate(iso);
+  }
+
   async function createFolder() {
     if (!newFolderName.trim()) return;
     const res = await fetch("/api/documents/folders", {
@@ -122,13 +137,13 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
   return (
     <div className="max-w-5xl space-y-6">
       {/* Search */}
-      <div className="relative">
-        <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+      <div className="flex items-center gap-3 border-b-[1.5px] border-ink pb-2 max-w-md">
+        <Search className="w-4 h-4 text-muted flex-shrink-0" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search files…"
-          className="w-full bg-paper border border-line2 rounded-lg pl-9 pr-3 py-2 text-[13px] text-ink outline-none"
+          placeholder="Search documents, licenses, care plans…"
+          className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink3"
         />
       </div>
 
@@ -185,6 +200,26 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
           )
         )}
       </div>
+
+      {/* Recent */}
+      {!loading && recentDocs.length > 0 && !selectedFolder && !search.trim() && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Recent</p>
+          {recentDocs.map((doc) => {
+            const cfg = fileTypeIcon(doc.mime_type);
+            const Icon = cfg.Icon;
+            return (
+              <div key={doc.id} className="flex items-center gap-3 py-2.5 border-b border-line text-[12.5px]">
+                <Icon className="w-3.5 h-3.5 text-sage flex-shrink-0" />
+                <span className="text-ink font-medium truncate flex-1 min-w-0">{doc.file_name}</span>
+                <span className="text-muted flex-shrink-0">
+                  {[doc.profiles?.full_name, relativeTime(doc.created_at)].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Care plan archive */}
       <Link href={`/${role}/documents/care-plans`} className="block bg-warning-bg border border-warning-border rounded-xl p-4 flex items-center gap-3">

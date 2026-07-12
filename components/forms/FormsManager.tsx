@@ -39,6 +39,7 @@ const CATEGORY_BG: Record<string, string> = {
 export default function FormsManager({ role }: { role: Role }) {
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   // AI builder — collapsed by default so the tab opens on forms already on file
   const [showBuilder, setShowBuilder] = useState(false);
@@ -279,6 +280,19 @@ export default function FormsManager({ role }: { role: Role }) {
         </button>
       )}
 
+      {/* Search */}
+      {forms.length > 0 && (
+        <div className="flex items-center gap-3 border-b-[1.5px] border-ink pb-2 max-w-md">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search forms…"
+            className="flex-1 text-[14px] bg-transparent text-ink placeholder:text-ink3 focus:outline-none"
+          />
+        </div>
+      )}
+
       {/* Form list */}
       {loading ? (
         <p className="text-[13px] text-muted">Loading forms…</p>
@@ -288,32 +302,35 @@ export default function FormsManager({ role }: { role: Role }) {
         </div>
       ) : (
         <div>
-          {forms.map((f) => {
-            const cat = (f.target_role === "client" ? "Clinical" : "Intake");
-            return (
-              <div key={f.id} className="bg-paper border border-line2 rounded-xl p-4 flex items-center gap-3 mb-2">
-                <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${CATEGORY_BG[cat] ?? "bg-paper2"}`}>
-                  <FileText className="w-4 h-4 text-ink2" />
-                </div>
-                <button onClick={() => openEditor(f)} className="text-left min-w-0 flex-1">
-                  <p className="text-[14px] font-medium text-ink truncate">{f.name}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {f.is_active ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-success-bg text-success-text">Active</span>
-                    ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-paper2 text-muted">Draft</span>
-                    )}
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slateWash text-slate capitalize">{f.target_role}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-paper2 text-muted">{f.submission_count ?? 0} submissions</span>
+          {forms
+            .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
+            .map((f) => {
+              const cat = (f.target_role === "client" ? "Clinical" : "Intake");
+              return (
+                <div key={f.id} className="flex items-center gap-3 py-3.5 border-b border-line">
+                  <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${CATEGORY_BG[cat] ?? "bg-paper2"}`}>
+                    <FileText className="w-4 h-4 text-ink2" />
                   </div>
-                </button>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => setSendForm(f)} className="bg-gold text-navy text-[12px] px-3 py-1.5 rounded-lg font-medium">Send</button>
-                  <Link href={`/${role}/forms/${f.id}/submissions`} className="text-[12px] text-slate px-2 py-1.5">Submissions</Link>
+                  <button onClick={() => openEditor(f)} className="text-left min-w-0 flex-1">
+                    <p className="text-[14px] font-medium text-ink truncate">{f.name}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {f.is_active ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-sageBg text-sage">Active</span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-paper2 text-muted">Draft</span>
+                      )}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slateWash text-slate capitalize">{f.target_role}</span>
+                      <span className="text-[10px] text-muted">{f.submission_count ?? 0} submissions</span>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <Link href={`/${role}/forms/${f.id}/fill`} className="text-[12px] font-semibold text-sage hover:text-gold transition">New</Link>
+                    <button onClick={() => setSendForm(f)} className="text-[12px] font-semibold text-sage hover:text-gold transition">Send</button>
+                    <Link href={`/${role}/forms/${f.id}/submissions`} className="text-[12px] text-muted hover:text-ink transition">Submissions</Link>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       )}
 

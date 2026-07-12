@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Send, Sparkles, Loader2, Camera, FileText, Clock } from "lucide-react";
+import { Send, Sparkles, Loader2, Camera, FileText, ArrowRight } from "lucide-react";
 
 interface Citation {
   source_type: "document" | "form" | "license";
@@ -76,114 +76,103 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel }: S
     }
   }
 
-  return (
-    <div className="bg-paper border border-line2 rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="size-7 rounded-full bg-navy flex items-center justify-center flex-shrink-0">
-          <Sparkles className="size-3.5 text-gold" />
-        </div>
-        <div>
-          <p className="text-[13px] font-semibold text-ink">Sola Support</p>
-          <p className="text-[11px] text-muted">Ask me anything about your business</p>
-        </div>
-      </div>
+  const inConversation = messages.length > 0;
 
-      {messages.length === 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {role !== "employee" && (
-            <Link
-              href={`/${role}/documents/upload`}
-              className="flex flex-col items-center justify-center gap-1.5 text-center bg-paper2 border border-line rounded-lg px-3 py-4 hover:border-gold transition"
-            >
-              <Camera className="size-4 text-ink2" />
-              <span className="text-[12px] font-medium text-ink2">Scan a document</span>
-            </Link>
-          )}
-          {lastFormHref && (
-            <Link
-              href={lastFormHref}
-              className="flex flex-col items-center justify-center gap-1.5 text-center bg-paper2 border border-line rounded-lg px-3 py-4 hover:border-gold transition"
-            >
-              <FileText className="size-4 text-ink2" />
-              <span className="text-[12px] font-medium text-ink2">
-                Fill out {lastFormLabel || "your last form"}
-              </span>
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => ask("What's expiring soon?")}
-            className="flex flex-col items-center justify-center gap-1.5 text-center bg-paper2 border border-line rounded-lg px-3 py-4 hover:border-gold transition"
-          >
-            <Clock className="size-4 text-ink2" />
-            <span className="text-[12px] font-medium text-ink2">What&apos;s expiring soon?</span>
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto mb-3 pr-1">
-          {messages.map((msg, i) => (
-            <div key={i} className={msg.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div
-                className={
-                  msg.role === "user"
-                    ? "bg-navy text-paper rounded-xl rounded-br-sm px-3 py-2 max-w-[85%] text-[13px]"
-                    : "bg-paper2 border border-line rounded-xl rounded-bl-sm px-3 py-2 max-w-[85%]"
-                }
-              >
-                <p className={msg.role === "user" ? "text-[13px]" : "text-[13px] text-ink2 whitespace-pre-wrap"}>
+  return (
+    <div className="max-w-xl">
+      {inConversation ? (
+        <div className="space-y-5 max-h-[28rem] overflow-y-auto mb-4 pr-1">
+          {messages.map((msg, i) =>
+            msg.role === "user" ? (
+              <div key={i} className="flex justify-end">
+                <div className="bg-navy text-paper rounded-xl rounded-br-sm px-3.5 py-2.5 max-w-[80%] text-[13px]">
                   {msg.content}
-                </p>
+                </div>
+              </div>
+            ) : (
+              <div key={i}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="size-5 rounded-full bg-navy flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="size-2.5 text-gold" />
+                  </div>
+                  <span className="text-[12px] font-semibold text-ink">Sola</span>
+                </div>
+                <p className="text-[13px] text-ink2 whitespace-pre-wrap pl-7">{msg.content}</p>
                 {msg.citations && msg.citations.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2 pl-7">
                     {msg.citations.map((citation) => (
                       <Link
                         key={`${citation.source_type}:${citation.source_id}`}
                         href={sourceHref(role, citation.source_type)}
-                        className="text-[11px] bg-slateWash text-slate rounded-full px-2 py-0.5 hover:bg-gold hover:text-navy transition"
+                        className="text-[11px] text-sage border border-line rounded-full px-2.5 py-0.5 hover:border-gold hover:text-ink transition"
                       >
-                        {citation.source_type}: {citation.label}
+                        {citation.label}
                       </Link>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            )
+          )}
           {loading && (
-            <div className="flex justify-start">
-              <div className="bg-paper2 border border-line rounded-xl rounded-bl-sm px-3 py-2 flex items-center gap-2">
-                <Loader2 className="size-3.5 text-muted animate-spin" />
-                <span className="text-[12px] text-muted">Sola is thinking…</span>
-              </div>
+            <div className="flex items-center gap-2 pl-7">
+              <Loader2 className="size-3.5 text-muted animate-spin" />
+              <span className="text-[12px] text-muted">Sola is thinking…</span>
             </div>
           )}
           <div ref={threadEndRef} />
         </div>
-      )}
+      ) : null}
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
           ask(input);
         }}
-        className="flex items-center gap-2 mt-3"
+        className="flex items-center gap-3 border-b-[1.5px] border-ink pb-2"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your forms, licenses, or documents…"
+          placeholder={inConversation ? "Ask a follow-up…" : "Ask Sola anything about your business…"}
           disabled={loading}
-          className="flex-1 text-[13px] bg-paper2 border border-line rounded-lg px-3 py-2 text-ink placeholder:text-muted focus:outline-none focus:border-gold transition"
+          className="flex-1 text-[15px] bg-transparent text-ink placeholder:text-ink3 placeholder:italic focus:outline-none"
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="size-9 flex-shrink-0 flex items-center justify-center bg-navy rounded-lg text-gold disabled:opacity-40 hover:bg-navy-mid transition"
+          className="size-8 flex-shrink-0 flex items-center justify-center bg-gold rounded-full text-navy disabled:opacity-40 transition"
         >
-          <Send className="size-4" />
+          <Send className="size-3.5" />
         </button>
       </form>
+
+      {!inConversation && (
+        <div className="mt-1">
+          {role !== "employee" && (
+            <Link
+              href={`/${role}/documents/upload`}
+              className="flex items-center gap-3 py-3.5 border-b border-line text-[13.5px] font-medium text-ink hover:text-navy transition"
+            >
+              <Camera className="size-4 text-sage flex-shrink-0" />
+              Scan a document
+              <ArrowRight className="size-3.5 text-muted ml-auto flex-shrink-0" />
+            </Link>
+          )}
+          {lastFormHref && (
+            <Link
+              href={lastFormHref}
+              className="flex items-center gap-3 py-3.5 border-b border-line text-[13.5px] font-medium text-ink hover:text-navy transition"
+            >
+              <FileText className="size-4 text-sage flex-shrink-0" />
+              Fill out {lastFormLabel || "your last form"}
+              <ArrowRight className="size-3.5 text-muted ml-auto flex-shrink-0" />
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }

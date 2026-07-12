@@ -23,12 +23,13 @@ interface FormRendererProps {
   submitting?: boolean;
   readOnly?: boolean;
   values?: Record<string, unknown>;
+  suggestedFieldIds?: Set<string>;
 }
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg border text-sm font-sans outline-none transition-colors";
 const inputStyle = { borderColor: "#dce2ec", color: "#1a2e4a", backgroundColor: "#ffffff" };
 
-export default function FormRenderer({ schema, onSubmit, submitting, readOnly, values }: FormRendererProps) {
+export default function FormRenderer({ schema, onSubmit, submitting, readOnly, values, suggestedFieldIds }: FormRendererProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>(values ?? {});
 
   function set(id: string, value: unknown) {
@@ -110,9 +111,17 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
 
             return (
               <div key={field.id}>
-                <label className="block text-sm font-semibold mb-1.5 font-sans" style={{ color: "#1a2e4a" }}>
+                <label className="flex items-center gap-2 text-sm font-semibold mb-1.5 font-sans" style={{ color: "#1a2e4a" }}>
                   {field.label}
-                  {field.required && !readOnly && <span className="ml-1" style={{ color: "#c0392b" }}>*</span>}
+                  {field.required && !readOnly && <span style={{ color: "#c0392b" }}>*</span>}
+                  {suggestedFieldIds?.has(field.id) && (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: "#C9A84C", backgroundColor: "rgba(201,168,76,0.14)" }}
+                    >
+                      Suggested by Sola
+                    </span>
+                  )}
                 </label>
 
                 {field.type === "text" && (

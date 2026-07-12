@@ -25,10 +25,10 @@ export default async function EmployeeDashboard() {
     lastFormLabel = (f as { name?: string } | null)?.name;
   }
 
-  const firstName = profile?.full_name?.split(" ")[0];
+  const firstName = profile?.full_name?.split(" ")[0] ?? "there";
 
   return (
-    <PageShell role="employee" title={firstName ? `Welcome, ${firstName}` : "Welcome"} subtitle="Your forms, licenses, and documents" userName={profile?.full_name}>
+    <PageShell role="employee" greetingName={firstName} userName={profile?.full_name}>
       <div className="space-y-4 max-w-5xl">
         <SolaSupportChat
           role="employee"

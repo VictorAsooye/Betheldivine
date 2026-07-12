@@ -120,7 +120,7 @@ export default async function OwnerDashboard() {
   const nextStep = setupSteps.find((s) => !s.done) ?? null;
 
   return (
-    <PageShell role="owner" title="Operations Dashboard" subtitle="Manage your team, clients, and compliance" userName={profile?.full_name}>
+    <PageShell role="owner" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} userName={profile?.full_name}>
       <div className="space-y-4 max-w-6xl">
         {/* Onboarding */}
         <WelcomeBanner companyName={companyName} />

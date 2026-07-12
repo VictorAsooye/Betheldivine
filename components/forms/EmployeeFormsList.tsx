@@ -43,11 +43,11 @@ export default function EmployeeFormsList() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       {forms.map((f) => {
         const done = submitted.has(f.id);
         return (
-          <div key={f.id} className="bg-paper border border-line2 rounded-xl p-4 flex items-center gap-3 mb-2">
+          <div key={f.id} className="flex items-center gap-3 py-3.5 border-b border-line">
             <div className="w-9 h-9 rounded-md bg-info-bg flex items-center justify-center flex-shrink-0">
               <FileText className="w-4 h-4 text-info-text" />
             </div>
@@ -58,7 +58,7 @@ export default function EmployeeFormsList() {
             {done ? (
               <span className="text-[12px] text-muted">Done</span>
             ) : (
-              <Link href={`/forms/${f.id}`} className="text-gold border border-gold rounded-lg px-3 py-1.5 text-[12px] font-medium">Open</Link>
+              <Link href={`/employee/forms/${f.id}/fill`} className="text-[12px] font-semibold text-sage hover:text-gold transition">Open</Link>
             )}
           </div>
         );

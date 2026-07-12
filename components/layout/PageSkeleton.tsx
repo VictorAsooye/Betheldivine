@@ -5,20 +5,13 @@ interface PageSkeletonProps {
 export default function PageSkeleton({ variant = "list" }: PageSkeletonProps) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-paper2">
-      {/* TopNav placeholder */}
-      <div className="bg-paper border-b border-line2 flex-shrink-0">
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="h-[30px] w-40 bg-line rounded animate-pulse" />
-          <div className="w-8 h-8 rounded-full bg-line animate-pulse" />
-        </div>
-        <div className="hidden md:flex items-center gap-4 px-6 pb-3">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-4 w-16 bg-line rounded animate-pulse" />)}
-        </div>
-        <div className="px-6 py-4 border-t border-line">
-          <div className="h-6 w-48 bg-line rounded animate-pulse" />
-        </div>
+      {/* Persistent top-right avatar placeholder */}
+      <div className="fixed top-4 right-5 z-30 w-8 h-8 rounded-full bg-line animate-pulse" />
+      {/* Page heading placeholder */}
+      <div className="pt-16 pb-4 px-6 pr-16 flex-shrink-0">
+        <div className="h-6 w-48 bg-line rounded animate-pulse" />
       </div>
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
         {variant === "dashboard" && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
