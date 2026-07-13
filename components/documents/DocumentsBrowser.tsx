@@ -30,6 +30,8 @@ interface Doc {
   file_name: string;
   file_size: number | null;
   mime_type: string | null;
+  category: string | null;
+  description: string | null;
   created_at: string;
   folder_id: string | null;
   profiles?: { full_name?: string } | null;
@@ -98,7 +100,22 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
   const visibleDocs = useMemo(() => {
     let list = docs;
     if (selectedFolder) list = list.filter((d) => d.folder_id === selectedFolder);
-    if (search.trim()) list = list.filter((d) => d.file_name.toLowerCase().includes(search.toLowerCase()));
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((d) => {
+        const haystack = [
+          d.file_name,
+          d.profiles?.full_name,
+          d.category,
+          d.description,
+          formatDate(d.created_at),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+    }
     return list;
   }, [docs, selectedFolder, search]);
 

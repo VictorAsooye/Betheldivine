@@ -92,6 +92,39 @@ export function submissionEmbedContent(
   return lines.join("\n");
 }
 
+// Formats a static (hardcoded, non-dynamic) form submission's raw data as
+// readable text for embedding — used for forms like the Client Care Plan
+// that predate the dynamic forms/schema system and have no FormField[] to
+// look up labels from, only raw snake_case keys.
+export function staticFormEmbedContent(
+  formLabel: string,
+  data: Record<string, unknown>,
+  submitterName?: string | null
+): string {
+  const lines: string[] = [`Form: ${formLabel}`];
+  if (submitterName) lines.push(`Submitted by: ${submitterName}`);
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null || value === "") continue;
+
+    let formatted: string;
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      formatted = value.join(", ");
+    } else if (typeof value === "boolean") {
+      formatted = value ? "Yes" : "No";
+    } else if (typeof value === "object") {
+      formatted = JSON.stringify(value);
+    } else {
+      formatted = String(value);
+    }
+    const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    lines.push(`${label}: ${formatted}`);
+  }
+
+  return lines.join("\n");
+}
+
 export async function deleteEmbeddings(sourceType: EmbeddingSourceType, sourceId: string): Promise<void> {
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

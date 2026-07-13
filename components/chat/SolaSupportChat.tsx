@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles, Loader2, Camera, FileText, Copy, Check, FilePlus2 } from "lucide-react";
+import { Send, Bot, Loader2, Camera, FileText, Copy, Check, FilePlus2 } from "lucide-react";
 import { getGreeting, type Greeting } from "@/lib/greeting";
 
 interface Citation {
@@ -236,7 +236,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
               <div key={i} className="group">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="size-5 rounded-full bg-navy flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="size-2.5 text-gold" />
+                    <Bot className="size-3 text-gold" />
                   </div>
                   <span className="text-[12px] font-semibold text-ink">Sola</span>
                 </div>

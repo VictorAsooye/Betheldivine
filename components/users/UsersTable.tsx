@@ -11,11 +11,10 @@ interface Profile {
   created_at: string;
 }
 
-const ROLES = ["pending", "client", "employee", "owner", "admin"];
+const ROLES = ["pending", "employee", "owner", "admin"];
 
 const ROLE_BADGE: Record<string, string> = {
   pending: "bg-warning-bg text-warning-text",
-  client: "bg-info-bg text-info-text",
   employee: "bg-success-bg text-success-text",
   owner: "bg-slateWash text-slate",
   admin: "bg-danger-bg text-danger-text",

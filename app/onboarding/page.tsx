@@ -815,7 +815,6 @@ function Step4(props: {
             className="onb-input w-auto"
           >
             <option value="employee">Employee</option>
-            <option value="client">Client</option>
             <option value="all">All</option>
           </select>
           <select

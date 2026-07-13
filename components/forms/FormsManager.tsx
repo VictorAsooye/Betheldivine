@@ -37,12 +37,7 @@ export default function FormsManager({ role }: { role: Role }) {
   const [carePlanCount, setCarePlanCount] = useState(0);
 
   // AI builder — collapsed by default so the tab opens on forms already on file
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [target, setTarget] = useState("employee");
-  const [category, setCategory] = useState("Intake");
-  const [prompt, setPrompt] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [builderError, setBuilderError] = useState<string | null>(null);
+  const [category] = useState("Intake");
 
   const [toast, setToast] = useState<string | null>(null);
 
@@ -68,39 +63,6 @@ export default function FormsManager({ role }: { role: Role }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-
-  async function handleGenerate() {
-    if (!prompt.trim()) return;
-    setGenerating(true);
-    setBuilderError(null);
-    try {
-      const res = await fetch("/api/ai/generate-form", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, target_role: target, category }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Generation failed");
-      const schema = d.schema as FormSchema;
-      setEditorForm({
-        id: "",
-        name: schema.title ?? "Untitled form",
-        description: schema.description ?? null,
-        schema,
-        target_role: target,
-        is_active: false,
-      });
-      setEditorSchema(schema);
-      setEditorNew(true);
-      setMessages([{ role: "ai", text: "I've drafted your form. Use the suggestions or ask me to change anything." }]);
-      setPrompt("");
-      setShowBuilder(false);
-    } catch (e) {
-      setBuilderError(e instanceof Error ? e.message : "Failed to generate form");
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   function openEditor(form: FormItem) {
     setEditorForm(form);
@@ -195,56 +157,9 @@ export default function FormsManager({ role }: { role: Role }) {
       )}
 
       {/* AI builder — collapsed behind a toggle so the tab opens on forms on file */}
-      {showBuilder ? (
-        <div className="bg-slateWash border border-slate/20 rounded-xl p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-6 h-6 text-slate flex-shrink-0" />
-              <div>
-                <p className="text-[15px] font-medium text-ink">Create forms with Sola AI</p>
-                <p className="text-[13px] text-muted">Describe what you need — built in seconds</p>
-              </div>
-            </div>
-            <button onClick={() => setShowBuilder(false)} className="text-muted hover:text-ink flex-shrink-0"><X className="w-4 h-4" /></button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <select value={target} onChange={(e) => setTarget(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
-              <option value="employee">Employee</option>
-              <option value="client">Client</option>
-              <option value="all">All</option>
-            </select>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-paper border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink">
-              {["Intake", "Compliance", "Clinical", "Administrative", "Other"].map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the form you need..."
-            className="w-full mt-3 bg-paper border border-line2 rounded-lg p-3 text-[13px] text-ink min-h-[80px] outline-none"
-          />
-          {builderError && <p className="text-[12px] text-danger-text mt-2">{builderError}</p>}
-          <button
-            onClick={handleGenerate}
-            disabled={generating || !prompt.trim()}
-            className="mt-3 bg-slate text-white rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50 flex items-center gap-2"
-          >
-            {generating && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-            {generating ? "Generating…" : "Generate"}
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowBuilder(true)}
-          className="w-full flex items-center gap-3 bg-paper border border-dashed border-line2 rounded-xl p-4 text-left hover:border-slate/40"
-        >
-          <Sparkles className="w-5 h-5 text-slate flex-shrink-0" />
-          <div>
-            <p className="text-[14px] font-medium text-ink">Create a new form with Sola AI</p>
-            <p className="text-[12px] text-muted">Describe what you need — built in seconds</p>
-          </div>
-        </button>
-      )}
+      <p className="text-[12px] text-muted">
+        Need a new form? Ask Sola on the <Link href={`/${role}`} className="text-sage hover:text-gold underline">home page</Link> to build it for you.
+      </p>
 
       {/* Search */}
       {forms.length > 0 && (
@@ -291,7 +206,7 @@ export default function FormsManager({ role }: { role: Role }) {
           {forms
             .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
             .map((f) => {
-              const cat = (f.target_role === "client" ? "Clinical" : "Intake");
+              const cat = "Intake";
               return (
                 <div key={f.id} className="flex items-center gap-3 py-3.5 border-b border-line">
                   <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${CATEGORY_BG[cat] ?? "bg-paper2"}`}>

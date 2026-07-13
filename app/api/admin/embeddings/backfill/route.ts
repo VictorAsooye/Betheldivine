@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { embedAndStore } from "@/lib/embeddings";
+import { embedAndStore, submissionEmbedContent, staticFormEmbedContent } from "@/lib/embeddings";
+import type { FormField } from "@/components/FormRenderer";
 import { extractText } from "@/lib/extract-text";
 
 export const maxDuration = 60; // seconds — Vercel Hobby max
@@ -18,9 +19,10 @@ interface LicenseRow {
   notes: string | null;
 }
 
-// One-time (or re-runnable) backfill: embeds every existing document, form,
-// and license. Admin-only. Safe to re-run — embedAndStore replaces existing
-// chunks for each source.
+// Backfill embeddings for every document, form, license, and submission
+// (dynamic + static). Admin-only. Skips anything already embedded, so it's
+// safe and cheap to call repeatedly — useful since Voyage's embedding API
+// rate-limits by default, meaning one call may not get through everything.
 export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,12 +43,19 @@ export async function POST() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const results = { documents: 0, forms: 0, licenses: 0, errors: [] as string[] };
+  const results = { documents: 0, forms: 0, licenses: 0, submissions: 0, staticSubmissions: 0, skipped: 0, errors: [] as string[] };
+
+  // Embedding calls are rate-limited (Voyage AI), so make this resumable:
+  // skip anything that already has at least one embedding row, so repeated
+  // calls make incremental progress instead of re-doing finished work.
+  const { data: existingRows } = await service.from("document_embeddings").select("source_type, source_id");
+  const alreadyEmbedded = new Set((existingRows ?? []).map((r) => `${r.source_type}:${r.source_id}`));
 
   const { data: forms } = await service
     .from("forms")
     .select("id, name, description, schema");
   for (const form of forms ?? []) {
+    if (alreadyEmbedded.has(`form:${form.id}`)) { results.skipped++; continue; }
     try {
       await embedAndStore(
         "form",
@@ -63,6 +72,7 @@ export async function POST() {
     .from("licenses")
     .select("id, holder_id, license_name, issuing_authority, license_number, expiry_date, notes");
   for (const license of (licenses ?? []) as LicenseRow[]) {
+    if (alreadyEmbedded.has(`license:${license.id}`)) { results.skipped++; continue; }
     try {
       await embedAndStore(
         "license",
@@ -80,6 +90,7 @@ export async function POST() {
     .from("documents")
     .select("id, uploader_id, file_path, file_name, mime_type, category, description");
   for (const doc of documents ?? []) {
+    if (alreadyEmbedded.has(`document:${doc.id}`)) { results.skipped++; continue; }
     try {
       let content = "";
       if (doc.mime_type === "application/pdf" || (doc.mime_type as string).startsWith("image/")) {
@@ -96,6 +107,54 @@ export async function POST() {
       results.documents++;
     } catch (err) {
       results.errors.push(`document ${doc.id}: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  }
+
+  // Dynamic form submissions (forms/[id]/submissions, forms/[id]/public)
+  const { data: submissions } = await service
+    .from("form_submissions")
+    .select("id, data, forms(name, schema), profiles!form_submissions_submitted_by_fkey(full_name)");
+  for (const sub of submissions ?? []) {
+    if (alreadyEmbedded.has(`submission:${sub.id}`)) { results.skipped++; continue; }
+    try {
+      const form = sub.forms as unknown as { name: string; schema: { fields?: FormField[] } } | null;
+      const submitter = (sub.profiles as unknown as { full_name?: string } | null)?.full_name;
+      await embedAndStore(
+        "submission",
+        sub.id,
+        submissionEmbedContent(form?.name ?? "Form", form?.schema?.fields ?? [], sub.data as Record<string, unknown>, submitter),
+        null
+      );
+      results.submissions++;
+    } catch (err) {
+      results.errors.push(`submission ${sub.id}: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  }
+
+  // Static form submissions (e.g. the Client Care Plan) — submitted_by is a
+  // FK to auth.users, not profiles, so resolve names in a separate query.
+  const { data: staticSubs } = await service
+    .from("static_form_submissions")
+    .select("id, form_type, data, submitted_by");
+  const staticSubmitterIds = Array.from(new Set((staticSubs ?? []).map((s) => s.submitted_by).filter(Boolean)));
+  const { data: staticProfiles } = staticSubmitterIds.length
+    ? await service.from("profiles").select("id, full_name").in("id", staticSubmitterIds)
+    : { data: [] };
+  const staticSubmitterMap = new Map((staticProfiles ?? []).map((p) => [p.id, p.full_name]));
+
+  for (const sub of staticSubs ?? []) {
+    if (alreadyEmbedded.has(`submission:${sub.id}`)) { results.skipped++; continue; }
+    try {
+      const submitter = sub.submitted_by ? staticSubmitterMap.get(sub.submitted_by) : null;
+      await embedAndStore(
+        "submission",
+        sub.id,
+        staticFormEmbedContent(sub.form_type, sub.data as Record<string, unknown>, submitter),
+        null
+      );
+      results.staticSubmissions++;
+    } catch (err) {
+      results.errors.push(`static submission ${sub.id}: ${err instanceof Error ? err.message : "unknown error"}`);
     }
   }
 

@@ -43,13 +43,13 @@ const FORM_TOOLS = [
   },
   {
     name: "create_form",
-    description: "Create a new fillable form that staff or clients can fill out in the app. Use this when the user asks to build or create a new form.",
+    description: "Create a new fillable form that staff can fill out in the app. Use this when the user asks to build or create a new form.",
     input_schema: {
       type: "object" as const,
       properties: {
         name: { type: "string" },
         description: { type: "string" },
-        target_role: { type: "string", enum: ["employee", "client", "all"] },
+        target_role: { type: "string", enum: ["employee", "all"] },
         fields: { type: "array", items: FORM_FIELD_SCHEMA },
       },
       required: ["name", "target_role", "fields"],
@@ -64,7 +64,7 @@ const FORM_TOOLS = [
         form_id: { type: "string" },
         name: { type: "string" },
         description: { type: "string" },
-        target_role: { type: "string", enum: ["employee", "client", "all"] },
+        target_role: { type: "string", enum: ["employee", "all"] },
         is_active: { type: "boolean" },
         fields: { type: "array", items: FORM_FIELD_SCHEMA },
       },
@@ -106,6 +106,33 @@ async function resolveLabels(
       const submitter = (row.profiles as unknown as { full_name: string } | null)?.full_name;
       const date = new Date(row.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       labels.set(`submission:${row.id}`, `${formName} — ${submitter ?? "anonymous"}, ${date}`);
+    }
+
+    // Some submission ids belong to the older static form system (e.g. the
+    // Client Care Plan), which lives in a separate table with no schema/name
+    // lookup — fall back there for any ids the dynamic query didn't resolve.
+    const unresolved = submissionIds.filter((id) => !labels.has(`submission:${id}`));
+    if (unresolved.length) {
+      // submitted_by here is a foreign key to auth.users, not profiles, so
+      // PostgREST can't auto-embed the profile — fetch it separately.
+      const { data: staticRows } = await supabase
+        .from("static_form_submissions")
+        .select("id, form_type, created_at, submitted_by")
+        .in("id", unresolved);
+      const submitterIds = Array.from(new Set((staticRows ?? []).map((r) => r.submitted_by).filter(Boolean)));
+      const { data: submitterProfiles } = submitterIds.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", submitterIds)
+        : { data: [] };
+      const submitterMap = new Map((submitterProfiles ?? []).map((p) => [p.id, p.full_name]));
+
+      for (const row of staticRows ?? []) {
+        const formLabel = row.form_type
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+        const submitter = row.submitted_by ? submitterMap.get(row.submitted_by) : null;
+        const date = new Date(row.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        labels.set(`submission:${row.id}`, `${formLabel} — ${submitter ?? "anonymous"}, ${date}`);
+      }
     }
   }
 

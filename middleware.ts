@@ -7,7 +7,6 @@ const ROLE_HOME: Record<string, string> = {
   admin: "/admin",
   owner: "/owner",
   employee: "/employee",
-  client: "/client",
   pending: "/pending",
 };
 
@@ -99,7 +98,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Block cross-role dashboard access for non-admins
-  const dashboardRoles = ["admin", "owner", "employee", "client"];
+  const dashboardRoles = ["admin", "owner", "employee"];
   for (const r of dashboardRoles) {
     if (pathname.startsWith(`/${r}`) && r !== role) {
       return NextResponse.redirect(new URL(home, request.url));

@@ -26,7 +26,7 @@ export async function PATCH(
   const body = await request.json();
   const { role, is_active } = body;
 
-  const validRoles = ["admin", "owner", "employee", "client", "pending"];
+  const validRoles = ["admin", "owner", "employee", "pending"];
   if (role !== undefined && !validRoles.includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }

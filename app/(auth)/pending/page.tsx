@@ -30,7 +30,7 @@ export default async function PendingPage() {
     },
     {
       label: "Role Assignment",
-      description: "An administrator will assign your role (employee, client, or owner).",
+      description: "An administrator will assign your role (employee, owner, or admin).",
       status: "pending",
     },
     {

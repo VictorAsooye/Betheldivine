@@ -8,6 +8,7 @@ import {
   generateCarePlanFilename,
   generateCarePlanStoragePath,
 } from "@/lib/care-plans/filename";
+import { embedAndStore, staticFormEmbedContent } from "@/lib/embeddings";
 
 // Keep the function alive long enough for PDF generation + Resend call +
 // storage upload. Default is 10s (Hobby) / 60s (Pro). 30s is safe for both.
@@ -64,6 +65,16 @@ export async function POST(req: NextRequest) {
     .single();
 
   const submittedBy = profile?.full_name ?? profile?.email ?? "Unknown";
+
+  // Org-wide (owner_id null) so any staff member's questions to Sola can
+  // surface real client data, matching the dynamic form_submissions pipeline.
+  embedAndStore(
+    "submission",
+    inserted.id,
+    staticFormEmbedContent(form_type, data as Record<string, unknown>, submittedBy),
+    null
+  ).catch((e) => console.error("[static-forms] embedding failed", e));
+
   const submittedAtDate = new Date();
   const submittedAt = submittedAtDate.toLocaleString("en-US", {
     month: "long", day: "numeric", year: "numeric",

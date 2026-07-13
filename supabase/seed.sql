@@ -12,8 +12,8 @@
 --   dr.asooye@betheldivine.com (owner)
 --   emily.johnson@example.com  (employee)
 --   marcus.lee@example.com     (employee)
---   alice.smith@example.com    (client)
---   robert.jones@example.com   (client)
+--   alice.smith@example.com    (care recipient, not a portal login)
+--   robert.jones@example.com   (care recipient, not a portal login)
 
 -- ─────────────────────────────────────────────
 -- Seed variables (adjust UUIDs after auth setup)
@@ -45,8 +45,10 @@ VALUES
   (v_owner_id,   'Dr. Asooye',         'dr.asooye@betheldivine.com',     'owner',    true, ARRAY[]::text[]),
   (v_emp1_id,    'Emily Johnson',      'emily.johnson@example.com',      'employee', true, ARRAY['CNA', 'CPR/AED']),
   (v_emp2_id,    'Marcus Lee',         'marcus.lee@example.com',         'employee', true, ARRAY['HHA', 'CPR/AED']),
-  (v_client1_id, 'Alice Smith',        'alice.smith@example.com',        'client',   true, ARRAY[]::text[]),
-  (v_client2_id, 'Robert Jones',       'robert.jones@example.com',       'client',   true, ARRAY[]::text[])
+  -- Alice/Robert are care recipients, not portal users — 'pending' here
+  -- just satisfies the profiles FK the clients table needs; they never log in.
+  (v_client1_id, 'Alice Smith',        'alice.smith@example.com',        'pending',  true, ARRAY[]::text[]),
+  (v_client2_id, 'Robert Jones',       'robert.jones@example.com',       'pending',  true, ARRAY[]::text[])
 ON CONFLICT (id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   email = EXCLUDED.email,
@@ -200,7 +202,7 @@ INSERT INTO audit_logs (actor_id, action, target_table, target_id, metadata)
 VALUES
   (v_admin_id, 'USER_CREATED', 'profiles', v_emp1_id::text, '{"role":"employee","name":"Emily Johnson"}'),
   (v_admin_id, 'USER_CREATED', 'profiles', v_emp2_id::text, '{"role":"employee","name":"Marcus Lee"}'),
-  (v_admin_id, 'USER_CREATED', 'profiles', v_client1_id::text, '{"role":"client","name":"Alice Smith"}'),
-  (v_admin_id, 'USER_CREATED', 'profiles', v_client2_id::text, '{"role":"client","name":"Robert Jones"}');
+  (v_admin_id, 'USER_CREATED', 'profiles', v_client1_id::text, '{"role":"pending","name":"Alice Smith"}'),
+  (v_admin_id, 'USER_CREATED', 'profiles', v_client2_id::text, '{"role":"pending","name":"Robert Jones"}');
 
 END $$;

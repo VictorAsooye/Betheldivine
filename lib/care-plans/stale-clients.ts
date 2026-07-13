@@ -4,9 +4,13 @@
  * Server-side data fetch for the Care Plan Status widget on the Owner and Admin
  * dashboards. Runs 3 efficient queries (no raw SQL function required):
  *
- *   1. Active client profiles  (profiles WHERE role='client' AND is_active=true)
- *   2. Client records          (clients WHERE profile_id IN [...])
- *   3. Latest care plan date   (care_plan_documents WHERE client_id IN [...], newest-first)
+ *   1. Client records, not suppressed  (clients WHERE suppress_care_plan_alert=false)
+ *   2. Their linked profiles           (profiles WHERE id IN [...], for name + active flag)
+ *   3. Latest care plan date           (care_plan_documents WHERE client_id IN [...], newest-first)
+ *
+ * Clients are care recipients tracked in the `clients` table — this has
+ * never required or implied a portal login role, so it's independent of
+ * whatever role (if any) the linked profile has.
  *
  * Classification (per client):
  *   NO_PLAN  — zero care_plan_documents rows for this client_id
@@ -75,30 +79,29 @@ export async function getCarePlanAlertData(): Promise<CarePlanAlertData> {
   const service = getServiceClient();
   const now = new Date();
 
-  // ── 1. All active client profiles ────────────────────────────────────────
-  const { data: clientProfiles, error: profilesError } = await service
-    .from("profiles")
-    .select("id, full_name")
-    .eq("role", "client")
-    .eq("is_active", true);
+  // ── 1. Client rows not opted out of alerts ───────────────────────────────
+  // suppress_care_plan_alert = true means the owner/admin has explicitly
+  // opted that client out of dashboard alerts.
+  const { data: allClientRows, error: clientsError } = await service
+    .from("clients")
+    .select("id, profile_id, created_at, suppress_care_plan_alert")
+    .eq("suppress_care_plan_alert", false);
 
-  if (profilesError || !clientProfiles?.length) {
+  if (clientsError || !allClientRows?.length) {
     return { noPlans: [], stalePlans: [], totalActive: 0, allCurrent: true };
   }
 
-  const profileIds = clientProfiles.map((p) => p.id);
-  const profileMap = new Map(clientProfiles.map((p) => [p.id, p]));
+  // ── 2. Their linked profiles — for name + active flag ────────────────────
+  const profileIds = allClientRows.map((c) => c.profile_id);
+  const { data: profiles } = await service
+    .from("profiles")
+    .select("id, full_name, is_active")
+    .in("id", profileIds);
 
-  // ── 2. Client rows (clients.id is the FK used in care_plan_documents) ────
-  // suppress_care_plan_alert = true means the owner/admin has explicitly
-  // opted that client out of dashboard alerts.
-  const { data: clientRows, error: clientsError } = await service
-    .from("clients")
-    .select("id, profile_id, created_at, suppress_care_plan_alert")
-    .in("profile_id", profileIds)
-    .eq("suppress_care_plan_alert", false);
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const clientRows = allClientRows.filter((c) => profileMap.get(c.profile_id)?.is_active !== false);
 
-  if (clientsError || !clientRows?.length) {
+  if (!clientRows.length) {
     return { noPlans: [], stalePlans: [], totalActive: 0, allCurrent: true };
   }
 

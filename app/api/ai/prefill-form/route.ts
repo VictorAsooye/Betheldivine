@@ -36,13 +36,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "formId and description are required" }, { status: 400 });
   }
 
-  // Same visibility rule as GET /api/forms — employees/clients only ever see
-  // forms targeting them; admin/owner see everything.
+  // Same visibility rule as GET /api/forms — employees only ever see forms
+  // targeting them; admin/owner see everything.
   let query = supabase.from("forms").select("id, schema, target_role, is_active").eq("id", formId);
   if (profile?.role === "employee") {
     query = query.in("target_role", ["employee", "all"]).eq("is_active", true);
-  } else if (profile?.role === "client") {
-    query = query.in("target_role", ["client", "all"]).eq("is_active", true);
   }
   const { data: form } = await query.maybeSingle();
   if (!form) return NextResponse.json({ error: "Form not found" }, { status: 404 });
