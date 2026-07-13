@@ -256,7 +256,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
   }
 
   return (
-    <div className="max-w-2xl mx-auto w-full">
+    <div className="max-w-2xl mx-auto w-full pt-16">
       {inConversation && (
         <div className="space-y-7 pb-6">
           {messages.map((msg, i) =>
