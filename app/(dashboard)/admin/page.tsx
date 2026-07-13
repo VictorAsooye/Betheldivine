@@ -69,7 +69,7 @@ export default async function AdminDashboard() {
             <p className="text-[13px] text-warning-text">
               {overdueCarePlan.clientName}&apos;s care plan is overdue —{" "}
               {overdueCarePlan.status === "no_plan" ? "no plan on file" : `last updated ${overdueCarePlan.daysSincePlan} days ago`}.{" "}
-              <Link href="/admin/forms?open=client_care_plan" className="text-gold font-medium">Send form →</Link>
+              <Link href={`/admin/forms/client-care-plan?prefill_name=${encodeURIComponent(overdueCarePlan.clientName)}`} className="text-gold font-medium">Send form →</Link>
             </p>
           </div>
         )}

@@ -159,7 +159,7 @@ export default async function OwnerDashboard() {
                 ? "no plan on file"
                 : `last updated ${overdueCarePlan.daysSincePlan} days ago`}
               .{" "}
-              <Link href="/owner/forms?open=client_care_plan" className="text-gold font-medium">Send form →</Link>
+              <Link href={`/owner/forms/client-care-plan?prefill_name=${encodeURIComponent(overdueCarePlan.clientName)}`} className="text-gold font-medium">Send form →</Link>
             </p>
           </div>
         )}

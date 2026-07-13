@@ -34,6 +34,7 @@ export default function FormsManager({ role }: { role: Role }) {
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [carePlanCount, setCarePlanCount] = useState(0);
 
   // AI builder — collapsed by default so the tab opens on forms already on file
   const [showBuilder, setShowBuilder] = useState(false);
@@ -56,9 +57,14 @@ export default function FormsManager({ role }: { role: Role }) {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/forms");
-    const d = await res.json();
+    const [formsRes, carePlanRes] = await Promise.all([
+      fetch("/api/forms"),
+      fetch("/api/static-forms?form_type=client_care_plan"),
+    ]);
+    const d = await formsRes.json();
     setForms(Array.isArray(d) ? d : []);
+    const carePlanSubs = await carePlanRes.json();
+    setCarePlanCount(Array.isArray(carePlanSubs) ? carePlanSubs.length : 0);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -256,12 +262,32 @@ export default function FormsManager({ role }: { role: Role }) {
       {/* Form list */}
       {loading ? (
         <p className="text-[13px] text-muted">Loading forms…</p>
-      ) : forms.length === 0 ? (
-        <div className="bg-paper border border-line2 rounded-xl p-8 text-center">
-          <p className="text-[13px] text-muted">No forms yet. Use &quot;Create a new form&quot; above to get started.</p>
-        </div>
       ) : (
         <div>
+          {!"client care plan".includes(search.toLowerCase()) ? null : (
+            <div className="flex items-center gap-3 py-3.5 border-b border-line">
+              <div className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 bg-success-bg">
+                <FileText className="w-4 h-4 text-ink2" />
+              </div>
+              <div className="text-left min-w-0 flex-1">
+                <p className="text-[14px] font-medium text-ink truncate">Client Care Plan</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sageBg text-sage">Active</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slateWash text-slate">client</span>
+                  <span className="text-[10px] text-muted">{carePlanCount} submission{carePlanCount !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <Link href={`/${role}/forms/client-care-plan`} className="text-[12px] font-semibold text-sage hover:text-gold transition">New</Link>
+                <Link href={`/${role}/forms/client-care-plan/submissions`} className="text-[12px] text-muted hover:text-ink transition">Submissions</Link>
+              </div>
+            </div>
+          )}
+          {forms.length === 0 && !"client care plan".includes(search.toLowerCase()) && (
+            <div className="bg-paper border border-line2 rounded-xl p-8 text-center">
+              <p className="text-[13px] text-muted">No forms yet. Use &quot;Create a new form&quot; above to get started.</p>
+            </div>
+          )}
           {forms
             .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
             .map((f) => {

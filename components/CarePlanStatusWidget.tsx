@@ -185,7 +185,7 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
   if (dismissed) return null;
 
   const { totalActive, allCurrent } = data;
-  const formBase = `/${role}/forms?open=client_care_plan`;
+  const formBase = `/${role}/forms/client-care-plan`;
   const docsHref = `/${role}/documents/care-plans`;
   const totalAlert = noPlans.length + stalePlans.length;
   const effectivelyAllCurrent = allCurrent || totalAlert === 0;
@@ -304,7 +304,7 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
                 <ClientRow
                   key={client.clientId}
                   client={client}
-                  formHref={`${formBase}&prefill_name=${encodeURIComponent(
+                  formHref={`${formBase}?prefill_name=${encodeURIComponent(
                     client.clientName
                   )}`}
                   buttonLabel="Create care plan"
@@ -341,7 +341,7 @@ export default function CarePlanStatusWidget({ data, role }: Props) {
                 <ClientRow
                   key={client.clientId}
                   client={client}
-                  formHref={`${formBase}&prefill_name=${encodeURIComponent(
+                  formHref={`${formBase}?prefill_name=${encodeURIComponent(
                     client.clientName
                   )}`}
                   buttonLabel="Update care plan"
