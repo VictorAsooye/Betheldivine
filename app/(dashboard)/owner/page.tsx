@@ -121,7 +121,7 @@ export default async function OwnerDashboard() {
 
   return (
     <PageShell role="owner" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} userName={profile?.full_name}>
-      <div className="space-y-4 max-w-6xl">
+      <div className="space-y-4 max-w-6xl mx-auto w-full flex-1 flex flex-col">
         {/* Onboarding */}
         <WelcomeBanner companyName={companyName} />
         <SetupChecklist
@@ -168,6 +168,7 @@ export default async function OwnerDashboard() {
           role="owner"
           lastFormHref={pickUp ? "/owner/forms" : null}
           lastFormLabel={pickUp?.form_type.replace(/_/g, " ")}
+          greetingName={profile?.full_name?.split(" ")[0] ?? "there"}
         />
       </div>
     </PageShell>

@@ -135,7 +135,7 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Search */}
       <div className="flex items-center gap-3 border-b-[1.5px] border-ink pb-2 max-w-md">
         <Search className="w-4 h-4 text-muted flex-shrink-0" />

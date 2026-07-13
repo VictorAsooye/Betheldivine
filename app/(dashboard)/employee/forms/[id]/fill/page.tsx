@@ -95,7 +95,7 @@ export default function EmployeeFillFormPage() {
       backHref="/employee/forms"
       backLabel="Forms"
     >
-      <div className="max-w-2xl pb-10">
+      <div className="max-w-2xl mx-auto pb-10">
         {loading ? (
           <p className="text-[13px] text-muted">Loading form…</p>
         ) : !form ? (

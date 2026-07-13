@@ -61,33 +61,6 @@ const ROLE_LABEL: Record<Role, string> = {
   employee: "Employee",
 };
 
-// Time-of-day greeting + a light rotating subtitle, same idea as Claude's own greeting.
-const GREETING_COPY = {
-  morning: {
-    greet: "Good morning",
-    sub: ["Here's where things stand today.", "Let's see what's on deck.", "Ready when you are."],
-  },
-  afternoon: {
-    greet: "Good afternoon",
-    sub: ["Everything's tracking as expected.", "Here's where things stand.", "All quiet for now."],
-  },
-  evening: {
-    greet: "Good evening",
-    sub: ["Wrapping up for the day.", "Here's a quick look before you go.", "Things are steady tonight."],
-  },
-  night: {
-    greet: "Good evening",
-    sub: ["Everything's quiet right now.", "Nothing urgent tonight."],
-  },
-} as const;
-
-function timeBucket(hour: number): keyof typeof GREETING_COPY {
-  if (hour >= 5 && hour < 12) return "morning";
-  if (hour >= 12 && hour < 17) return "afternoon";
-  if (hour >= 17 && hour < 21) return "evening";
-  return "night";
-}
-
 function initials(name?: string | null): string {
   if (!name) return "U";
   const parts = name.trim().split(/\s+/);
@@ -130,15 +103,6 @@ export default function TopNav({
   const scheduleCloseSidebar = () => {
     closeTimer.current = setTimeout(() => setHovering(false), 220);
   };
-
-  const [greeting, setGreeting] = useState<{ line: string; sub: string } | null>(null);
-  useEffect(() => {
-    if (!greetingName) return;
-    const bucket = timeBucket(new Date().getHours());
-    const copy = GREETING_COPY[bucket];
-    const sub = copy.sub[Math.floor(Math.random() * copy.sub.length)];
-    setGreeting({ line: `${copy.greet}, ${greetingName}.`, sub });
-  }, [greetingName]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -248,40 +212,34 @@ export default function TopNav({
         )}
       </div>
 
-      {/* Page heading — normal content flow, no chrome bar */}
-      <div className="pt-16 pb-4 px-6 pr-16">
-        {backHref && (
-          <Link
-            href={backHref}
-            className="inline-flex items-center gap-1 text-[12px] text-muted hover:text-ink mb-1"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            {backLabel ?? "Back"}
-          </Link>
-        )}
-        <div className="flex items-end justify-between gap-4">
-          <div className="min-w-0">
-            {greetingName ? (
-              <>
-                <h1 className="text-[28px] text-ink leading-tight truncate" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
-                  {greeting?.line ?? ` `}
-                </h1>
-                <p className="text-[13px] text-muted mt-0.5 truncate">{greeting?.sub ?? " "}</p>
-              </>
-            ) : (
-              <>
+      {/* Page heading — skipped entirely on Home (greetingName set), which renders
+          its own centered hero instead. Centered content column everywhere else. */}
+      {!greetingName && (
+        <div className="pt-16 pb-4 px-6 pr-16">
+          <div className="max-w-4xl mx-auto">
+            {backHref && (
+              <Link
+                href={backHref}
+                className="inline-flex items-center gap-1 text-[12px] text-muted hover:text-ink mb-1"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                {backLabel ?? "Back"}
+              </Link>
+            )}
+            <div className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
                 {title && (
                   <h1 className="text-[22px] text-ink leading-tight truncate" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
                     {title}
                   </h1>
                 )}
                 {subtitle && <p className="text-[13px] text-muted mt-0.5 truncate">{subtitle}</p>}
-              </>
-            )}
+              </div>
+              {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+            </div>
           </div>
-          {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
         </div>
-      </div>
+      )}
 
       {/* Mobile bottom tab bar — unchanged */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-navy flex flex-row border-t border-white/10">

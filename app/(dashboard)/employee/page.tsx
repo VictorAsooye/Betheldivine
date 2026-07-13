@@ -29,11 +29,12 @@ export default async function EmployeeDashboard() {
 
   return (
     <PageShell role="employee" greetingName={firstName} userName={profile?.full_name}>
-      <div className="space-y-4 max-w-5xl">
+      <div className="space-y-4 max-w-5xl mx-auto w-full flex-1 flex flex-col">
         <SolaSupportChat
           role="employee"
           lastFormHref={pickUp ? "/employee/forms" : null}
           lastFormLabel={lastFormLabel}
+          greetingName={firstName}
         />
       </div>
     </PageShell>

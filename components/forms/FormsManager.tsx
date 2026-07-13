@@ -223,7 +223,7 @@ export default function FormsManager({ role }: { role: Role }) {
   const suggestionChips = ["Add a medication section", "Make all fields required", "Add emergency contact"];
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="max-w-5xl mx-auto space-y-5">
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60] bg-navy text-white text-[13px] px-4 py-2.5 rounded-lg shadow-lg">{toast}</div>
       )}

@@ -53,7 +53,7 @@ export default async function AdminDashboard() {
 
   return (
     <PageShell role="admin" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} userName={profile?.full_name}>
-      <div className="space-y-4 max-w-6xl">
+      <div className="space-y-4 max-w-6xl mx-auto w-full flex-1 flex flex-col">
         {expiredLicense && (
           <div className="w-full bg-warning-bg border border-warning-border rounded-lg px-4 py-3 flex items-center gap-3">
             <AlertTriangle className="size-4 text-warning-text flex-shrink-0" />
@@ -74,7 +74,7 @@ export default async function AdminDashboard() {
           </div>
         )}
 
-        <SolaSupportChat role="admin" />
+        <SolaSupportChat role="admin" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} />
       </div>
     </PageShell>
   );
