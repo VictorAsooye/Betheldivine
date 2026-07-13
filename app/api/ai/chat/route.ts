@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { retrieveContext, RetrievedChunk } from "@/lib/retrieval";
 import { createForm, updateForm } from "@/lib/forms";
+import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
 import type { FormField } from "@/components/FormRenderer";
 
 export const maxDuration = 30;
@@ -25,7 +26,7 @@ const FORM_FIELD_SCHEMA = {
     id: { type: "string", description: "Unique snake_case identifier for this field, e.g. full_name" },
     type: {
       type: "string",
-      enum: ["text", "textarea", "select", "multiselect", "boolean", "date", "datetime", "number", "email", "phone", "section"],
+      enum: ["text", "textarea", "select", "multiselect", "boolean", "date", "datetime", "number", "email", "phone", "section", "signature"],
     },
     label: { type: "string" },
     required: { type: "boolean" },
@@ -70,6 +71,17 @@ const FORM_TOOLS = [
       },
       required: ["form_id"],
     },
+  },
+];
+
+// Available to every role — retrieval-over-chunks can't reliably answer
+// "who's overdue," since that needs the full client roster and accurate
+// day-math, not just whatever submission text happened to be retrieved.
+const GENERAL_TOOLS = [
+  {
+    name: "get_overdue_care_plans",
+    description: "Get the exact, authoritative list of clients whose care plan is overdue as of today — either no plan on file, or last updated 60+ days ago. Always use this tool for any question about who is overdue, who needs a new care plan, or care plan staleness — never try to compute it yourself from retrieved context.",
+    input_schema: { type: "object" as const, properties: {}, required: [] },
   },
 ];
 
@@ -139,12 +151,24 @@ async function resolveLabels(
   return labels;
 }
 
-async function executeFormTool(
+async function executeTool(
   name: string,
   input: Record<string, unknown>,
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<{ output: unknown; formAction?: FormAction }> {
+  if (name === "get_overdue_care_plans") {
+    const data = await getCarePlanAlertData();
+    return {
+      output: {
+        asOf: new Date().toISOString().slice(0, 10),
+        noPlanOnFile: data.noPlans.map((c) => ({ client: c.clientName, daysSinceAdded: c.daysSinceAdded })),
+        stale: data.stalePlans.map((c) => ({ client: c.clientName, daysSincePlan: c.daysSincePlan, lastPlan: c.lastPlanSubmittedAt })),
+        allCurrent: data.allCurrent,
+      },
+    };
+  }
+
   if (name === "list_forms") {
     const { data: forms } = await supabase
       .from("forms")
@@ -248,14 +272,9 @@ export async function POST(request: NextRequest) {
   try {
     const chunks = await retrieveContext(supabase, question);
 
-    if (chunks.length === 0 && !canManageForms && recentHistory.length === 0) {
-      return NextResponse.json({
-        answer:
-          "I don't have any relevant data to answer that yet — either nothing matching has been added, or embeddings haven't been generated. Try asking about a form, license, or document you know exists.",
-        citations: [],
-      });
-    }
-
+    // No early-return on empty retrieval anymore — every role now has tool
+    // access (get_overdue_care_plans, and form management for admin/owner)
+    // that doesn't depend on retrieved chunks at all.
     const labels = await resolveLabels(supabase, chunks);
 
     const contextBlock = chunks.length
@@ -270,8 +289,8 @@ export async function POST(request: NextRequest) {
     const anthropic = new Anthropic({ apiKey });
 
     const systemPrompt = canManageForms
-      ? "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. Use the conversation history to understand follow-ups (e.g. if you proposed a form's fields earlier and the user says to go ahead, build exactly what you proposed). You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list."
-      : "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer the user's question using ONLY the provided context below and the conversation history. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1].";
+      ? "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. Use the conversation history to understand follow-ups (e.g. if you proposed a form's fields earlier and the user says to go ahead, build exactly what you proposed). You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). Use get_overdue_care_plans for any question about overdue or missing care plans — never estimate that from context chunks. After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list."
+      : "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer the user's question using ONLY the provided context below and the conversation history. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1]. Use get_overdue_care_plans for any question about overdue or missing care plans — never estimate that from context chunks.";
 
     const anthropicMessages: Anthropic.MessageParam[] = [
       ...recentHistory.map((h) => ({ role: h.role, content: h.content })),
@@ -288,7 +307,7 @@ export async function POST(request: NextRequest) {
         thinking: { type: "disabled" },
         system: systemPrompt,
         messages: anthropicMessages,
-        ...(canManageForms ? { tools: FORM_TOOLS } : {}),
+        tools: canManageForms ? [...FORM_TOOLS, ...GENERAL_TOOLS] : GENERAL_TOOLS,
       });
 
       if (response.stop_reason !== "tool_use") {
@@ -302,7 +321,7 @@ export async function POST(request: NextRequest) {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type !== "tool_use") continue;
-        const result = await executeFormTool(block.name, block.input as Record<string, unknown>, supabase, user.id);
+        const result = await executeTool(block.name, block.input as Record<string, unknown>, supabase, user.id);
         if (result.formAction) formAction = result.formAction;
         toolResults.push({
           type: "tool_result",

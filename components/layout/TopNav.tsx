@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Users,
   Settings,
+  PenLine,
   LogOut,
   ArrowLeft,
   Menu,
@@ -40,6 +41,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Forms", href: "/admin/forms", icon: FileText },
     { label: "File Cabinet", href: "/admin/documents", icon: FolderOpen },
     { label: "Users", href: "/admin/users", icon: Users },
+    { label: "My Signature", href: "/admin/settings/signature", icon: PenLine },
   ],
   owner: [
     { label: "Home", href: "/owner", icon: LayoutDashboard },
@@ -47,11 +49,13 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "File Cabinet", href: "/owner/documents", icon: FolderOpen },
     { label: "Users", href: "/owner/employees", icon: Users },
     { label: "Settings", href: "/owner/settings/branding", icon: Settings },
+    { label: "My Signature", href: "/owner/settings/signature", icon: PenLine },
   ],
   employee: [
     { label: "Home", href: "/employee", icon: LayoutDashboard },
     { label: "Forms", href: "/employee/forms", icon: FileText },
     { label: "File Cabinet", href: "/employee/documents", icon: FolderOpen },
+    { label: "My Signature", href: "/employee/settings/signature", icon: PenLine },
   ],
 };
 

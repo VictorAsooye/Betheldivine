@@ -23,7 +23,6 @@ const CATEGORIES = ["Incident Report", "Medication Log", "Client Intake", "Compl
 const ROLES = [
   { value: "all", label: "Everyone" },
   { value: "employee", label: "Employees" },
-  { value: "client", label: "Clients" },
 ];
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -36,6 +35,7 @@ const FIELD_TYPES = [
   { value: "number", label: "Number" },
   { value: "email", label: "Email" },
   { value: "phone", label: "Phone" },
+  { value: "signature", label: "Signature" },
 ];
 
 const TYPE_COLOR: Record<string, { bg: string; color: string }> = {
@@ -49,6 +49,7 @@ const TYPE_COLOR: Record<string, { bg: string; color: string }> = {
   number:      { bg: "#fef2f2", color: "#c0392b" },
   email:       { bg: "#f0f4ff", color: "#2AADAD" },
   phone:       { bg: "#f0f4ff", color: "#2AADAD" },
+  signature:   { bg: "#fdf8ec", color: "#C9A84C" },
 };
 
 function generateId() {

@@ -28,6 +28,20 @@ interface ChatMessage {
 
 type Role = "owner" | "admin" | "employee";
 
+// Real, working asks — not filler. Everyone gets questions Sola can already
+// answer from what's on file; owner/admin get one form-creation example too,
+// since only those roles can build forms through chat.
+const SHARED_PROMPTS = [
+  "Which licenses are expiring soon?",
+  "Who hasn't had a care plan update in 60+ days?",
+  "Summarize this month's care plan submissions",
+];
+const MANAGER_ONLY_PROMPT = "Create a new incident report form";
+
+function examplePromptsFor(role: Role): string[] {
+  return role === "employee" ? SHARED_PROMPTS : [...SHARED_PROMPTS, MANAGER_ONLY_PROMPT];
+}
+
 function sourceHref(role: Role, sourceType: Citation["source_type"]): string {
   const path =
     sourceType === "document" ? "documents" :
@@ -202,6 +216,25 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
     </div>
   );
 
+  const examples = !inConversation && (
+    <div className={isHero ? "mt-6" : "mt-4"}>
+      <p className={isHero ? "text-[12px] text-muted mb-2.5" : "text-[12px] text-muted mb-2"}>Try asking</p>
+      <div className={isHero ? "flex flex-wrap justify-center gap-2" : "flex flex-wrap gap-2"}>
+        {examplePromptsFor(role).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => ask(p)}
+            disabled={loading}
+            className="text-[13px] text-ink2 bg-paper border border-line2 rounded-full px-4 py-2 hover:border-gold hover:text-ink disabled:opacity-50 transition"
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   if (isHero) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-10">
@@ -216,6 +249,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
           <p className="text-[14px] text-muted mt-1 mb-7">{greeting?.sub ?? " "}</p>
           {inputForm}
           {shortcuts}
+          {examples}
         </div>
       </div>
     );
@@ -287,6 +321,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
       <div className={inConversation ? "sticky bottom-0 bg-paper2 pt-2 pb-2" : ""}>
         {inputForm}
         {shortcuts}
+        {examples}
       </div>
     </div>
   );

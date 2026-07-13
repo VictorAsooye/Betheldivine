@@ -306,6 +306,19 @@ function cpVal(data: Record<string, unknown>, key: string): string {
   return String(v);
 }
 
+// Signature fields may hold a legacy typed-name string or the newer
+// { kind, value, font_id } shape — the email body just needs a short summary,
+// not the full drawn image.
+function cpSigVal(data: Record<string, unknown>, key: string): string {
+  const v = data[key];
+  if (v && typeof v === "object" && "kind" in (v as Record<string, unknown>)) {
+    const sig = v as { kind: string; value: string };
+    return sig.kind === "typed" ? sig.value : "Signed";
+  }
+  if (v === undefined || v === null || v === "") return "—";
+  return String(v);
+}
+
 function cpRow(label: string, value: string, shade = false): string {
   return `<tr style="background:${shade ? "#f7f9fc" : "#fff"};">
     <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:38%;border-bottom:1px solid #dce2ec;vertical-align:top;">${label}</td>
@@ -405,13 +418,66 @@ export function carePlanSubmittedTemplate(data: {
         ${cpRow("Notes", cpVal(formData, "caregiver_notes"))}
 
         ${cpSection("9. Signatures")}
-        ${cpRow("Client / Guardian", `${cpVal(formData, "client_signature")} — ${cpVal(formData, "client_signature_date")}`)}
-        ${cpRow("Care Coordinator", `${cpVal(formData, "coordinator_signature")} (${cpVal(formData, "coordinator_printed_name")}) — ${cpVal(formData, "coordinator_signature_date")}`, true)}
-        ${cpRow("Caregiver / Aide", `${cpVal(formData, "caregiver_signature")} (${cpVal(formData, "caregiver_printed_name")}) — ${cpVal(formData, "caregiver_signature_date")}`)}
+        ${cpRow("Client / Guardian", `${cpSigVal(formData, "client_signature")} — ${cpVal(formData, "client_signature_date")}`)}
+        ${cpRow("Care Coordinator", `${cpSigVal(formData, "coordinator_signature")} (${cpVal(formData, "coordinator_printed_name")}) — ${cpVal(formData, "coordinator_signature_date")}`, true)}
+        ${cpRow("Caregiver / Aide", `${cpSigVal(formData, "caregiver_signature")} (${cpVal(formData, "caregiver_printed_name")}) — ${cpVal(formData, "caregiver_signature_date")}`)}
       </table>
 
       ${divider()}
       ${muted("This email was automatically generated when a care plan was submitted in the Bethel Divine portal. The full print-ready PDF is available at the link above.")}
+    `),
+  };
+}
+
+export function demoIntakeNotificationTemplate(data: {
+  companyName: string;
+  industry: string;
+  cityState: string;
+  teamSize: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactRole: string;
+  painPoints: string[];
+  painPointDetails: string;
+  sampleFormDescription: string;
+  brandColor: string;
+  tagline: string;
+  timeline: string;
+}) {
+  const row = (label: string, value: string) =>
+    value
+      ? `<tr>
+          <td style="padding:8px 0;font-size:13px;color:#8e9ab0;width:160px;vertical-align:top;">${label}</td>
+          <td style="padding:8px 0;font-size:14px;color:#1a2e4a;">${value}</td>
+        </tr>`
+      : "";
+
+  return {
+    subject: `New demo request — ${data.companyName}`,
+    html: branded(`
+      ${h1("New Demo Request")}
+      ${p(`${data.contactName} from ${data.companyName} just filled out the demo-intake questionnaire.`)}
+      ${divider()}
+      <table style="width:100%;border-collapse:collapse;">
+        ${row("Company", data.companyName)}
+        ${row("Industry", data.industry)}
+        ${row("Location", data.cityState)}
+        ${row("Team size", data.teamSize)}
+        ${row("Contact", `${data.contactName} (${data.contactRole || "—"})`)}
+        ${row("Email", data.contactEmail)}
+        ${row("Phone", data.contactPhone)}
+        ${row("Brand color", data.brandColor)}
+        ${row("Tagline", data.tagline)}
+        ${row("Timeline", data.timeline)}
+        ${row("Pain points", data.painPoints.join(", "))}
+      </table>
+      ${data.painPointDetails ? h2("What's slowing them down") : ""}
+      ${data.painPointDetails ? p(data.painPointDetails) : ""}
+      ${data.sampleFormDescription ? h2("A form they fill out today") : ""}
+      ${data.sampleFormDescription ? p(data.sampleFormDescription) : ""}
+      ${divider()}
+      ${muted("This was submitted through the public demo-intake page.")}
     `),
   };
 }

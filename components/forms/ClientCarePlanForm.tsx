@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import SignaturePad from "@/components/signature/SignaturePad";
+import SignatureDisplay from "@/components/signature/SignatureDisplay";
+import { signatureText, signatureImageSrc, type SignatureValue } from "@/components/signature/types";
 
 interface Props {
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
@@ -136,6 +139,67 @@ function Field({
           {error}
         </span>
       )}
+    </div>
+  );
+}
+
+function SignatureField({
+  value,
+  onChange,
+  error,
+}: {
+  value: unknown;
+  onChange: (v: SignatureValue) => void;
+  error?: string;
+}) {
+  // Normalizes both the new SignatureValue shape and legacy plain-string
+  // values (pre-signature submissions stored a typed name directly).
+  const normalized: SignatureValue | null = (() => {
+    if (value && typeof value === "object" && "kind" in (value as Record<string, unknown>)) {
+      return value as SignatureValue;
+    }
+    const text = signatureText(value);
+    if (text) return { kind: "typed", value: text };
+    const img = signatureImageSrc(value);
+    if (img) return { kind: "drawn", value: img };
+    return null;
+  })();
+
+  const [editing, setEditing] = useState(!normalized);
+
+  if (editing) {
+    return (
+      <div style={{ marginTop: "4px" }}>
+        <SignaturePad
+          initialValue={normalized ?? undefined}
+          onSave={(sig) => {
+            onChange(sig);
+            setEditing(false);
+          }}
+          onCancel={normalized ? () => setEditing(false) : undefined}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        borderBottom: `1.5px solid ${error ? ERROR_RED : BORDER}`,
+        paddingBottom: "6px",
+      }}
+    >
+      <SignatureDisplay signature={normalized} />
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        style={{ fontSize: "11px", color: TEAL, textDecoration: "underline", flexShrink: 0, background: "none", border: "none", cursor: "pointer" }}
+      >
+        Change
+      </button>
     </div>
   );
 }
@@ -726,15 +790,15 @@ export default function ClientCarePlanForm({ onSubmit, submitting, initialData, 
           <SectionHeader number={9} title="Signatures & Authorization" />
 
           <p style={{ fontSize: "11px", color: GRAY, marginBottom: "16px", fontStyle: "italic" }}>
-            Type full name in each signature field as acknowledgment.
+            Sign each field below as acknowledgment of this care plan.
           </p>
 
           <div style={rowGap}>
             <Field label="Client / Legal Guardian Signature" fieldKey="client_signature" style={{ flex: 1, minWidth: "200px" }} error={errors.client_signature}>
-              <input
-                style={inputStyleFor(!!errors.client_signature)}
-                value={get("client_signature")}
-                onChange={(e) => set("client_signature", e.target.value)}
+              <SignatureField
+                value={formData.client_signature}
+                onChange={(sig) => set("client_signature", sig)}
+                error={errors.client_signature}
               />
             </Field>
             <Field label="Date" fieldKey="client_signature_date" style={{ width: "160px" }} error={errors.client_signature_date}>
@@ -752,10 +816,10 @@ export default function ClientCarePlanForm({ onSubmit, submitting, initialData, 
 
           <div style={rowGap}>
             <Field label="Care Coordinator / Supervisor Signature" fieldKey="coordinator_signature" style={{ flex: 1, minWidth: "200px" }} error={errors.coordinator_signature}>
-              <input
-                style={inputStyleFor(!!errors.coordinator_signature)}
-                value={get("coordinator_signature")}
-                onChange={(e) => set("coordinator_signature", e.target.value)}
+              <SignatureField
+                value={formData.coordinator_signature}
+                onChange={(sig) => set("coordinator_signature", sig)}
+                error={errors.coordinator_signature}
               />
             </Field>
             <Field label="Printed Name" style={{ flex: 1, minWidth: "160px" }}>
@@ -768,7 +832,10 @@ export default function ClientCarePlanForm({ onSubmit, submitting, initialData, 
 
           <div style={rowGap}>
             <Field label="Caregiver / Aide Signature" style={{ flex: 1, minWidth: "200px" }}>
-              <input style={inputStyleFor(false)} value={get("caregiver_signature")} onChange={(e) => set("caregiver_signature", e.target.value)} />
+              <SignatureField
+                value={formData.caregiver_signature}
+                onChange={(sig) => set("caregiver_signature", sig)}
+              />
             </Field>
             <Field label="Printed Name" style={{ flex: 1, minWidth: "160px" }}>
               <input style={inputStyleFor(false)} value={get("caregiver_printed_name")} onChange={(e) => set("caregiver_printed_name", e.target.value)} />

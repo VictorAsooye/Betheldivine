@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { signatureText, signatureImageSrc } from "@/components/signature/types";
 
 const ClientCarePlanForm = dynamic(
   () => import("@/components/forms/ClientCarePlanForm"),
@@ -96,6 +97,25 @@ function Field({ label, value, style }: { label: string; value: string; style?: 
       <span style={{ fontSize: "8px", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</span>
       <span style={{ fontSize: "10px", color: NAVY, borderBottom: `1px solid ${BORDER}`, minHeight: "16px", paddingBottom: "2px" }}>
         {value || " "}
+      </span>
+    </div>
+  );
+}
+
+// Handles both legacy typed-name strings (existing submissions) and the
+// newer SignatureValue shape (typed or drawn) stored by the signature pad.
+function SignatureField({ label, raw, style }: { label: string; raw: unknown; style?: React.CSSProperties }) {
+  const imageSrc = signatureImageSrc(raw);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "3px", ...style }}>
+      <span style={{ fontSize: "8px", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</span>
+      <span style={{ fontSize: "10px", color: NAVY, borderBottom: `1px solid ${BORDER}`, minHeight: "16px", paddingBottom: "2px", display: "flex", alignItems: "center" }}>
+        {imageSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageSrc} alt="Signature" style={{ height: "16px" }} />
+        ) : (
+          signatureText(raw) || " "
+        )}
       </span>
     </div>
   );
@@ -494,20 +514,20 @@ export default function PrintCarePlanPage({ params }: { params: { id: string } }
         {/* ── Section 9: Signatures ── */}
         <SectionHeader>9. Signatures &amp; Authorization</SectionHeader>
         <div style={{ fontSize: "8px", color: "#666", marginBottom: "10px", fontStyle: "italic" }}>
-          Names typed below serve as acknowledgment of this care plan.
+          Signatures below serve as acknowledgment of this care plan.
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
-          <Field label="Client / Legal Guardian Signature" value={val(data, "client_signature")} style={{ flex: 2 }} />
+          <SignatureField label="Client / Legal Guardian Signature" raw={data.client_signature} style={{ flex: 2 }} />
           <Field label="Date" value={val(data, "client_signature_date")} style={{ flex: 1 }} />
           <Field label="Relationship (if guardian)" value={val(data, "guardian_relationship")} style={{ flex: 1.5 }} />
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
-          <Field label="Care Coordinator / Supervisor Signature" value={val(data, "coordinator_signature")} style={{ flex: 2 }} />
+          <SignatureField label="Care Coordinator / Supervisor Signature" raw={data.coordinator_signature} style={{ flex: 2 }} />
           <Field label="Printed Name" value={val(data, "coordinator_printed_name")} style={{ flex: 2 }} />
           <Field label="Date" value={val(data, "coordinator_signature_date")} style={{ flex: 1 }} />
         </div>
         <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
-          <Field label="Caregiver / Aide Signature" value={val(data, "caregiver_signature")} style={{ flex: 2 }} />
+          <SignatureField label="Caregiver / Aide Signature" raw={data.caregiver_signature} style={{ flex: 2 }} />
           <Field label="Printed Name" value={val(data, "caregiver_printed_name")} style={{ flex: 2 }} />
           <Field label="Date" value={val(data, "caregiver_signature_date")} style={{ flex: 1 }} />
         </div>

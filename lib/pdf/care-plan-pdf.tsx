@@ -4,9 +4,11 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import { signatureText, signatureImageSrc } from "@/components/signature/types";
 
 // ─── Colours ───────────────────────────────────────────────────────────────
 const TEAL  = "#2AADAD";
@@ -77,6 +79,7 @@ const s = StyleSheet.create({
   sigField: { flex: 1, borderBottomWidth: 1, borderBottomColor: BORDER, paddingBottom: 2, paddingTop: 10 },
   sigLabel: { fontSize: 7, color: GRAY, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.3 },
   sigValue: { fontSize: 8.5, color: NAVY, marginTop: 1 },
+  sigImage: { height: 22, objectFit: "contain", marginTop: 1 },
 
   // Footer
   footer: { borderTopWidth: 2, borderTopColor: TEAL, paddingTop: 6, marginTop: 14, textAlign: "center", fontSize: 7, color: GRAY },
@@ -168,6 +171,14 @@ function FieldRowDouble({
 
 function Checkbox({ checked }: { checked: boolean }) {
   return <View style={checked ? s.checkFilled : s.checkEmpty} />;
+}
+
+// Handles both legacy typed-name strings (existing submissions) and the
+// newer SignatureValue shape (typed or drawn) stored by the signature pad.
+function SignatureCell({ raw }: { raw: unknown }) {
+  const imageSrc = signatureImageSrc(raw);
+  if (imageSrc) return <Image src={imageSrc} style={s.sigImage} />;
+  return <Text style={s.sigValue}>{signatureText(raw) || "—"}</Text>;
 }
 
 // ─── Main PDF Document ─────────────────────────────────────────────────────
@@ -321,7 +332,7 @@ function CarePlanDocument({ data, submittedBy, submittedAt }: Props) {
           <View style={s.sigRow}>
             <View style={[s.sigField, { flex: 2 }]}>
               <Text style={s.sigLabel}>Client / Legal Guardian Signature</Text>
-              <Text style={s.sigValue}>{v(data, "client_signature")}</Text>
+              <SignatureCell raw={data.client_signature} />
             </View>
             <View style={s.sigField}>
               <Text style={s.sigLabel}>Date</Text>
@@ -335,7 +346,7 @@ function CarePlanDocument({ data, submittedBy, submittedAt }: Props) {
           <View style={s.sigRow}>
             <View style={[s.sigField, { flex: 2 }]}>
               <Text style={s.sigLabel}>Care Coordinator / Supervisor</Text>
-              <Text style={s.sigValue}>{v(data, "coordinator_signature")}</Text>
+              <SignatureCell raw={data.coordinator_signature} />
             </View>
             <View style={[s.sigField, { flex: 1.5 }]}>
               <Text style={s.sigLabel}>Printed Name</Text>
@@ -349,7 +360,7 @@ function CarePlanDocument({ data, submittedBy, submittedAt }: Props) {
           <View style={s.sigRow}>
             <View style={[s.sigField, { flex: 2 }]}>
               <Text style={s.sigLabel}>Caregiver / Aide Signature</Text>
-              <Text style={s.sigValue}>{v(data, "caregiver_signature")}</Text>
+              <SignatureCell raw={data.caregiver_signature} />
             </View>
             <View style={[s.sigField, { flex: 1.5 }]}>
               <Text style={s.sigLabel}>Printed Name</Text>

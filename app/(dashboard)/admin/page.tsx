@@ -4,6 +4,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import PageShell from "@/components/layout/PageShell";
 import { getCarePlanAlertData } from "@/lib/care-plans/stale-clients";
 import SolaSupportChat from "@/components/chat/SolaSupportChat";
+import SignaturePromptBanner from "@/components/signature/SignaturePromptBanner";
 import { AlertTriangle } from "lucide-react";
 
 function statusFromExpiry(expiry: string): "expired" | "soon" | "current" {
@@ -32,11 +33,16 @@ export default async function AdminDashboard() {
   );
 
   const profilePromise = user
-    ? service.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+    ? service.from("profiles").select("full_name, signature_prompt_dismissed_at").eq("id", user.id).maybeSingle()
     : Promise.resolve({ data: null });
 
-  const [profileRes, { data: expiringLicenses }, carePlanData] = await Promise.all([
+  const signaturePromise = user
+    ? service.from("signatures").select("id").eq("profile_id", user.id).eq("is_active", true).limit(1).maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const [profileRes, signatureRes, { data: expiringLicenses }, carePlanData] = await Promise.all([
     profilePromise,
+    signaturePromise,
     service
       .from("licenses")
       .select("id, license_name, expiry_date, profiles!licenses_holder_id_fkey(full_name)")
@@ -45,7 +51,8 @@ export default async function AdminDashboard() {
     getCarePlanAlertData(),
   ]);
 
-  const profile = (profileRes as { data: { full_name?: string } | null }).data;
+  const profile = (profileRes as { data: { full_name?: string; signature_prompt_dismissed_at?: string | null } | null }).data;
+  const hasSignature = !!(signatureRes as { data: { id: string } | null }).data;
   const licenses = (expiringLicenses as LicenseRow[] | null) ?? [];
 
   const expiredLicense = licenses.find((l) => statusFromExpiry(l.expiry_date) === "expired");
@@ -73,6 +80,12 @@ export default async function AdminDashboard() {
             </p>
           </div>
         )}
+
+        <SignaturePromptBanner
+          fullName={profile?.full_name}
+          hasSignature={hasSignature}
+          dismissed={!!profile?.signature_prompt_dismissed_at}
+        />
 
         <SolaSupportChat role="admin" greetingName={profile?.full_name?.split(" ")[0] ?? "there"} />
       </div>

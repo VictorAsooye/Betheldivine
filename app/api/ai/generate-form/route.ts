@@ -16,7 +16,7 @@ The JSON must match this exact structure:
   "fields": [
     {
       "id": "snake_case_unique_id",
-      "type": "section|text|textarea|select|multiselect|boolean|date|datetime|number|email|phone",
+      "type": "section|text|textarea|select|multiselect|boolean|date|datetime|number|email|phone|signature",
       "label": "string",
       "required": true|false,
       "options": ["array", "only", "for", "select", "and", "multiselect", "types"],
@@ -34,7 +34,7 @@ Rules:
 - Make forms professional and healthcare-appropriate
 - Model your section structure after real healthcare forms: Personal Information, Emergency Contact, Employment Details, Certifications, Health & Compliance, Signatures, etc.
 - Include all relevant fields for the described form type
-- Always end with a Signatures & Acknowledgment section
+- Always end with a Signatures & Acknowledgment section, using the "signature" field type for the actual signature field(s) (not "text") — a signature field needs only "id", "type", "label", and "required", no options or placeholder
 - Typical sections for employee forms: Personal Information, Emergency Contact, Employment Details, Availability, Certifications & Licenses, Health & Compliance, Signatures & Acknowledgment
 - Typical sections for client forms: Client Information, Medical History, Care Goals, Scheduled Services, Safety Considerations, Signatures & Authorization`;
 

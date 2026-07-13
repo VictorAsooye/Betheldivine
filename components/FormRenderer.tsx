@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import SignaturePad from "@/components/signature/SignaturePad";
+import SignatureDisplay from "@/components/signature/SignatureDisplay";
+import type { SignatureValue } from "@/components/signature/types";
 
 export interface FormField {
   id: string;
-  type: "text" | "textarea" | "select" | "multiselect" | "boolean" | "date" | "datetime" | "number" | "email" | "phone" | "section";
+  type: "text" | "textarea" | "select" | "multiselect" | "boolean" | "date" | "datetime" | "number" | "email" | "phone" | "section" | "signature";
   label: string;
   required: boolean;
   options?: string[];
@@ -31,6 +34,21 @@ const inputStyle = { borderColor: "#dce2ec", color: "#1a2e4a", backgroundColor: 
 
 export default function FormRenderer({ schema, onSubmit, submitting, readOnly, values, suggestedFieldIds }: FormRendererProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>(values ?? {});
+  const [mySignature, setMySignature] = useState<SignatureValue | null>(null);
+  const [openSignaturePads, setOpenSignaturePads] = useState<Set<string>>(new Set());
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+
+  const fields = schema.fields ?? [];
+  const hasSignatureField = fields.some((f) => f.type === "signature");
+
+  useEffect(() => {
+    if (readOnly || !hasSignatureField) return;
+    fetch("/api/signatures")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMySignature(d ?? null))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, hasSignatureField]);
 
   function set(id: string, value: unknown) {
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -44,12 +62,86 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
     set(id, next);
   }
 
+  function openSignaturePad(id: string) {
+    setOpenSignaturePads((prev) => new Set(prev).add(id));
+  }
+
+  function closeSignaturePad(id: string) {
+    setOpenSignaturePads((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function saveSignatureForField(id: string, sig: SignatureValue) {
+    set(id, sig);
+    closeSignaturePad(id);
+    if (!mySignature) {
+      setMySignature(sig);
+      fetch("/api/signatures", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sig),
+      }).catch(() => {});
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const missingSignature = fields.some(
+      (f) => f.type === "signature" && f.required && !formData[f.id]
+    );
+    if (missingSignature) {
+      setSignatureError("Please sign before submitting.");
+      return;
+    }
+    setSignatureError(null);
     onSubmit?.(formData);
   }
 
-  const fields = schema.fields ?? [];
+  function renderSignatureField(fieldId: string) {
+    const val = formData[fieldId] as SignatureValue | undefined;
+
+    if (readOnly) return <SignatureDisplay signature={val ?? null} />;
+
+    const isOpen = openSignaturePads.has(fieldId);
+    if (isOpen || (!val && !mySignature)) {
+      return (
+        <SignaturePad
+          initialValue={val ?? undefined}
+          onSave={(sig) => saveSignatureForField(fieldId, sig)}
+          onCancel={val || mySignature ? () => closeSignaturePad(fieldId) : undefined}
+        />
+      );
+    }
+
+    if (val) {
+      return (
+        <div className="flex items-center gap-3">
+          <SignatureDisplay signature={val} />
+          <button type="button" onClick={() => openSignaturePad(fieldId)}
+            className="text-xs font-semibold underline flex-shrink-0" style={{ color: "#2AADAD" }}>
+            Change
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-3">
+        <SignatureDisplay signature={mySignature} />
+        <button type="button" onClick={() => set(fieldId, mySignature)}
+          className="text-xs font-semibold underline flex-shrink-0" style={{ color: "#2AADAD" }}>
+          Use this signature
+        </button>
+        <button type="button" onClick={() => openSignaturePad(fieldId)}
+          className="text-xs underline flex-shrink-0" style={{ color: "#8e9ab0" }}>
+          Sign differently
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -222,10 +314,16 @@ export default function FormRenderer({ schema, onSubmit, submitting, readOnly, v
                     })}
                   </div>
                 )}
+
+                {field.type === "signature" && renderSignatureField(field.id)}
               </div>
             );
           })}
         </div>
+
+        {signatureError && (
+          <p className="text-sm mt-3" style={{ color: "#c0392b" }}>{signatureError}</p>
+        )}
 
         {!readOnly && onSubmit && (
           <div style={{ marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #dce2ec" }}>

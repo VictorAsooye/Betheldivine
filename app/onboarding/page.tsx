@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { FormSchema } from "@/components/FormRenderer";
+import SignaturePad from "@/components/signature/SignaturePad";
+import type { SignatureValue } from "@/components/signature/types";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const BRAND_COLORS = [
   { name: "Navy", color: "#0D1B2A" },
@@ -62,14 +64,19 @@ export default function OnboardingPage() {
   const [savingCompany, setSavingCompany] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
 
-  // Step 2 — invites
+  // Step 2 — signature
+  const [fullName, setFullName] = useState("");
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+
+  // Step 3 — invites
   const [emailInput, setEmailInput] = useState("");
   const [pendingEmails, setPendingEmails] = useState<string[]>([]);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
   const [savingInvites, setSavingInvites] = useState(false);
 
-  // Step 3 — license
+  // Step 4 — license
   const [licenseType, setLicenseType] = useState<string | null>(null);
   const [issuingAuthority, setIssuingAuthority] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
@@ -77,7 +84,7 @@ export default function OnboardingPage() {
   const [savingLicense, setSavingLicense] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
 
-  // Step 4 — form
+  // Step 5 — form
   const [formPrompt, setFormPrompt] = useState(
     "Monthly visit summary for a home health caregiver — include client name, visit date, services provided, client condition, and caregiver notes."
   );
@@ -90,7 +97,7 @@ export default function OnboardingPage() {
   const [savedFormName, setSavedFormName] = useState<string>("");
   const [savingForm, setSavingForm] = useState(false);
 
-  // Step 5 — send
+  // Step 6 — send
   const [sendTo, setSendTo] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -112,6 +119,39 @@ export default function OnboardingPage() {
       return;
     }
     router.push("/owner?welcome=1");
+  }
+
+  // ── Step 2 ─────────────────────────────────────────────
+  useEffect(() => {
+    if (step !== 2 || fullName) return;
+    (async () => {
+      const userId = await getUserId();
+      if (!userId) return;
+      const { data } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+      if (data?.full_name) setFullName(data.full_name);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  async function saveSignature(sig: SignatureValue) {
+    setSavingSignature(true);
+    setSignatureError(null);
+    try {
+      const res = await fetch("/api/signatures", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sig),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Failed to save signature");
+      }
+      setStep(3);
+    } catch (e) {
+      setSignatureError(e instanceof Error ? e.message : "Failed to save signature");
+    } finally {
+      setSavingSignature(false);
+    }
   }
 
   // ── Step 1 ─────────────────────────────────────────────
@@ -332,16 +372,18 @@ export default function OnboardingPage() {
   const canContinue = (() => {
     if (step === 1) return companyName.trim().length > 0;
     if (step === 2) return true;
-    if (step === 3) return !!licenseType && !!expiryDate;
-    if (step === 4) return !!generatedSchema;
+    if (step === 3) return true;
+    if (step === 4) return !!licenseType && !!expiryDate;
+    if (step === 5) return !!generatedSchema;
     return true;
   })();
 
   async function handleContinue() {
     if (step === 1) return saveCompany();
-    if (step === 2) return saveInvites();
-    if (step === 3) return saveLicense();
-    if (step === 4) return saveForm();
+    if (step === 2) return setStep(3);
+    if (step === 3) return saveInvites();
+    if (step === 4) return saveLicense();
+    if (step === 5) return saveForm();
   }
 
   const continueBusy =
@@ -413,6 +455,16 @@ export default function OnboardingPage() {
           )}
 
           {step === 2 && (
+            <StepSignature
+              fullName={fullName}
+              saving={savingSignature}
+              error={signatureError}
+              onSave={saveSignature}
+              onSkip={() => setStep(3)}
+            />
+          )}
+
+          {step === 3 && (
             <Step2
               emailInput={emailInput}
               setEmailInput={setEmailInput}
@@ -420,11 +472,11 @@ export default function OnboardingPage() {
               addPendingEmail={addPendingEmail}
               removePendingEmail={removePendingEmail}
               inviteError={inviteError}
-              onSkip={() => setStep(3)}
+              onSkip={() => setStep(4)}
             />
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <Step3
               licenseType={licenseType}
               setLicenseType={setLicenseType}
@@ -439,7 +491,7 @@ export default function OnboardingPage() {
             />
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <Step4
               formPrompt={formPrompt}
               setFormPrompt={setFormPrompt}
@@ -455,7 +507,7 @@ export default function OnboardingPage() {
             />
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <Step5
               sendTo={sendTo}
               setSendTo={setSendTo}
@@ -472,7 +524,7 @@ export default function OnboardingPage() {
       </main>
 
       {/* Footer navigation */}
-      {step < 5 ? (
+      {step < 6 ? (
         <footer className="bg-paper border-t border-line px-6 py-4 flex items-center justify-between flex-shrink-0">
           {step > 1 ? (
             <button
@@ -495,7 +547,7 @@ export default function OnboardingPage() {
         </footer>
       ) : (
         <footer className="bg-paper border-t border-line px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <button onClick={() => setStep(4)} className="text-muted text-[13px]">
+          <button onClick={() => setStep(5)} className="text-muted text-[13px]">
             ← Back
           </button>
           <button
@@ -617,6 +669,38 @@ function Step1(props: {
       {props.companyError && (
         <p className="text-[12px] text-danger-text mt-2">{props.companyError}</p>
       )}
+    </div>
+  );
+}
+
+/* ── Step 2 (signature) ────────────────────────────── */
+function StepSignature(props: {
+  fullName: string;
+  saving: boolean;
+  error: string | null;
+  onSave: (sig: SignatureValue) => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div>
+      <h1 className="text-[22px] font-semibold text-ink">Create your signature</h1>
+      <p className="text-muted text-[14px]">
+        Pick a style or draw your own. You&apos;ll use it to sign forms and documents — keep it or change it anytime later.
+      </p>
+
+      <div className="mt-6">
+        <SignaturePad defaultName={props.fullName} onSave={props.onSave} saving={props.saving} />
+      </div>
+      {props.error && (
+        <p className="text-[12px] text-danger-text mt-2">{props.error}</p>
+      )}
+
+      <button
+        onClick={props.onSkip}
+        className="text-muted text-[13px] underline cursor-pointer mt-3"
+      >
+        Skip this step
+      </button>
     </div>
   );
 }

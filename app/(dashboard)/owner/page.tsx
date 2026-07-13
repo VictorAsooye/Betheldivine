@@ -7,6 +7,7 @@ import WelcomeBanner from "@/components/onboarding/WelcomeBanner";
 import SetupChecklist from "@/components/onboarding/SetupChecklist";
 import NextStepCard from "@/components/onboarding/NextStepCard";
 import SolaSupportChat from "@/components/chat/SolaSupportChat";
+import SignaturePromptBanner from "@/components/signature/SignaturePromptBanner";
 import {
   AlertTriangle,
   FileText,
@@ -43,7 +44,11 @@ export default async function OwnerDashboard() {
   );
 
   const profilePromise = user
-    ? service.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+    ? service.from("profiles").select("full_name, signature_prompt_dismissed_at").eq("id", user.id).maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const signaturePromise = user
+    ? service.from("signatures").select("id").eq("profile_id", user.id).eq("is_active", true).limit(1).maybeSingle()
     : Promise.resolve({ data: null });
 
   const brandingPromise = user
@@ -56,6 +61,7 @@ export default async function OwnerDashboard() {
 
   const [
     profileRes,
+    signatureRes,
     brandingRes,
     { count: formCount },
     { count: submissionsTotal },
@@ -66,6 +72,7 @@ export default async function OwnerDashboard() {
     carePlanData,
   ] = await Promise.all([
     profilePromise,
+    signaturePromise,
     brandingPromise,
     service.from("forms").select("*", { count: "exact", head: true }).eq("is_active", true),
     service.from("form_submissions").select("*", { count: "exact", head: true }),
@@ -86,7 +93,8 @@ export default async function OwnerDashboard() {
     getCarePlanAlertData(),
   ]);
 
-  const profile = (profileRes as { data: { full_name?: string } | null }).data;
+  const profile = (profileRes as { data: { full_name?: string; signature_prompt_dismissed_at?: string | null } | null }).data;
+  const hasSignature = !!(signatureRes as { data: { id: string } | null }).data;
   const licenses = (expiringLicenses as LicenseRow[] | null) ?? [];
 
   const pickUp = (pickUpRes as { data: { id: string; form_type: string; submitted_by: string; created_at: string } | null }).data;
@@ -163,6 +171,12 @@ export default async function OwnerDashboard() {
             </p>
           </div>
         )}
+
+        <SignaturePromptBanner
+          fullName={profile?.full_name}
+          hasSignature={hasSignature}
+          dismissed={!!profile?.signature_prompt_dismissed_at}
+        />
 
         <SolaSupportChat
           role="owner"

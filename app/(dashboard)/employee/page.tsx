@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PageShell from "@/components/layout/PageShell";
 import SolaSupportChat from "@/components/chat/SolaSupportChat";
+import SignaturePromptBanner from "@/components/signature/SignaturePromptBanner";
 
 export default async function EmployeeDashboard() {
   const supabase = await createClient();
@@ -9,7 +10,19 @@ export default async function EmployeeDashboard() {
   } = await supabase.auth.getUser();
   const userId = user!.id;
 
-  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, signature_prompt_dismissed_at")
+    .eq("id", userId)
+    .single();
+
+  const { data: signature } = await supabase
+    .from("signatures")
+    .select("id")
+    .eq("profile_id", userId)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
 
   const { data: pickUp } = await supabase
     .from("form_submissions")
@@ -30,6 +43,12 @@ export default async function EmployeeDashboard() {
   return (
     <PageShell role="employee" greetingName={firstName} userName={profile?.full_name}>
       <div className="space-y-4 max-w-5xl mx-auto w-full flex-1 flex flex-col">
+        <SignaturePromptBanner
+          fullName={profile?.full_name}
+          hasSignature={!!signature}
+          dismissed={!!profile?.signature_prompt_dismissed_at}
+        />
+
         <SolaSupportChat
           role="employee"
           lastFormHref={pickUp ? "/employee/forms" : null}

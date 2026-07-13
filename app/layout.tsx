@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Lora, Source_Sans_3 } from "next/font/google";
+import { Lora, Source_Sans_3, Dancing_Script, Caveat, Pacifico, Sacramento } from "next/font/google";
 import "./globals.css";
 
 const lora = Lora({
@@ -11,6 +11,34 @@ const lora = Lora({
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
   variable: "--font-source-sans",
+  display: "swap",
+});
+
+// Signature preset fonts — kept out of the default font-loading path;
+// only pages that render a signature actually pay for these.
+const dancingScript = Dancing_Script({
+  subsets: ["latin"],
+  variable: "--font-dancing-script",
+  display: "swap",
+});
+
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat",
+  display: "swap",
+});
+
+const pacifico = Pacifico({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-pacifico",
+  display: "swap",
+});
+
+const sacramento = Sacramento({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-sacramento",
   display: "swap",
 });
 
@@ -45,7 +73,7 @@ export default function RootLayout({
         <link rel="icon" href="/logo-icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logo-icon.png" />
       </head>
-      <body className={`${lora.variable} ${sourceSans.variable} font-sans antialiased`}>
+      <body className={`${lora.variable} ${sourceSans.variable} ${dancingScript.variable} ${caveat.variable} ${pacifico.variable} ${sacramento.variable} font-sans antialiased`}>
         {children}
         <script
           dangerouslySetInnerHTML={{

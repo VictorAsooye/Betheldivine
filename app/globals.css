@@ -17,6 +17,14 @@ body {
   .onb-input {
     @apply w-full bg-paper2 border border-line2 rounded-lg px-3 py-2 text-[13px] text-ink outline-none;
   }
+
+  /* Demo-intake public form inputs — slightly larger for easy reading */
+  .di-input {
+    @apply w-full bg-white border border-line2 rounded-lg px-3.5 py-2.5 text-[15px] text-ink outline-none;
+  }
+  .di-input:focus {
+    @apply border-navy;
+  }
 }
 
 @layer utilities {
