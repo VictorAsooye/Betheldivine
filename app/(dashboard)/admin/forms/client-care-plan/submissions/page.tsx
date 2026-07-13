@@ -43,7 +43,7 @@ export default function AdminClientCarePlanSubmissionsPage() {
       backHref="/admin/forms"
       backLabel="Forms"
     >
-      <div className="max-w-3xl mx-auto pb-10">
+      <div className="w-full max-w-3xl mx-auto pb-10">
         {loading ? (
           <p className="text-[13px] text-muted">Loading submissions…</p>
         ) : submissions.length === 0 ? (

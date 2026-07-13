@@ -113,7 +113,7 @@ export default function LicensesManager({ role }: { role: Role }) {
   }
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="w-full max-w-5xl space-y-5">
       {/* Stats */}
       {showStats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

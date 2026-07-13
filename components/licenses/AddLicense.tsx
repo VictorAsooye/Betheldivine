@@ -138,7 +138,7 @@ export default function AddLicense({ role }: { role: Role }) {
 
   if (done) {
     return (
-      <div className="max-w-md mx-auto text-center py-10">
+      <div className="w-full max-w-md mx-auto text-center py-10">
         <div className="w-16 h-16 rounded-full bg-success-bg flex items-center justify-center mx-auto mb-4">
           <Check className="w-8 h-8 text-success-text" />
         </div>
@@ -170,7 +170,7 @@ export default function AddLicense({ role }: { role: Role }) {
   const showForm = mode === "manual" || ((mode === "photo" || mode === "file") && !scanning && aiFields.size > 0);
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="w-full max-w-3xl space-y-5">
       {scanning && (
         <div className="fixed inset-0 z-50 bg-navy/80 flex flex-col items-center justify-center gap-4">
           <span className="w-12 h-12 border-4 border-gold/30 border-t-gold rounded-full animate-spin" />

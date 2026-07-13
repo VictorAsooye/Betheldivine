@@ -51,7 +51,7 @@ export default function AdminClientCarePlanPage() {
       backHref="/admin/forms"
       backLabel="Forms"
     >
-      <div className="max-w-3xl mx-auto pb-10">
+      <div className="w-full max-w-3xl mx-auto pb-10">
         {submitted ? (
           <div className="text-center py-16">
             <p className="text-[16px] font-medium text-ink mb-1">Submitted</p>

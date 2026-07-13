@@ -43,7 +43,7 @@ export default function EmployeeFormsList() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto">
       {forms.map((f) => {
         const done = submitted.has(f.id);
         return (

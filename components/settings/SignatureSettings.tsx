@@ -54,7 +54,7 @@ export default function SignatureSettings({ fullName }: Props) {
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="w-full max-w-lg">
       <div className="bg-paper border border-line2 rounded-xl p-6">
         {editing ? (
           <SignaturePad

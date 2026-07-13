@@ -95,7 +95,7 @@ export default function OwnerFillFormPage() {
       backHref="/owner/forms"
       backLabel="Forms"
     >
-      <div className="max-w-2xl mx-auto pb-10">
+      <div className="w-full max-w-2xl mx-auto pb-10">
         {loading ? (
           <p className="text-[13px] text-muted">Loading form…</p>
         ) : !form ? (

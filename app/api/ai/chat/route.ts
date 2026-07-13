@@ -75,13 +75,27 @@ const FORM_TOOLS = [
 ];
 
 // Available to every role — retrieval-over-chunks can't reliably answer
-// "who's overdue," since that needs the full client roster and accurate
-// day-math, not just whatever submission text happened to be retrieved.
+// date-scoped questions like "who's overdue" or "this month's submissions,"
+// since semantic search has no concept of recency or calendar periods — it
+// just returns whatever chunks are textually similar to the question, which
+// may be old, incomplete, or miss recent rows entirely.
 const GENERAL_TOOLS = [
   {
     name: "get_overdue_care_plans",
     description: "Get the exact, authoritative list of clients whose care plan is overdue as of today — either no plan on file, or last updated 60+ days ago. Always use this tool for any question about who is overdue, who needs a new care plan, or care plan staleness — never try to compute it yourself from retrieved context.",
     input_schema: { type: "object" as const, properties: {}, required: [] },
+  },
+  {
+    name: "get_care_plan_submissions",
+    description: "Get the real, authoritative list of Client Care Plan submissions in a date range, sorted newest first. Always use this — never retrieved context — for any question scoped to a time period (\"this month,\" \"last week,\" \"in May,\" \"today,\" \"recently,\" etc.), since retrieved context is a semantic-similarity search with no awareness of dates or which rows are most recent. Compute start_date/end_date yourself using the current date given in your system prompt. Omit both to get the most recent submissions with no date filter.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        start_date: { type: "string", description: "Inclusive start date, YYYY-MM-DD" },
+        end_date: { type: "string", description: "Inclusive end date, YYYY-MM-DD" },
+      },
+      required: [],
+    },
   },
 ];
 
@@ -165,6 +179,42 @@ async function executeTool(
         noPlanOnFile: data.noPlans.map((c) => ({ client: c.clientName, daysSinceAdded: c.daysSinceAdded })),
         stale: data.stalePlans.map((c) => ({ client: c.clientName, daysSincePlan: c.daysSincePlan, lastPlan: c.lastPlanSubmittedAt })),
         allCurrent: data.allCurrent,
+      },
+    };
+  }
+
+  if (name === "get_care_plan_submissions") {
+    const startDate = input.start_date as string | undefined;
+    const endDate = input.end_date as string | undefined;
+
+    let query = supabase
+      .from("static_form_submissions")
+      .select("id, created_at, submitted_by, data")
+      .eq("form_type", "client_care_plan")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (startDate) query = query.gte("created_at", startDate);
+    if (endDate) query = query.lte("created_at", `${endDate}T23:59:59.999Z`);
+
+    const { data: rows, error } = await query;
+    if (error) return { output: { error: error.message } };
+
+    const submitterIds = Array.from(new Set((rows ?? []).map((r) => r.submitted_by).filter(Boolean)));
+    const { data: submitters } = submitterIds.length
+      ? await supabase.from("profiles").select("id, full_name").in("id", submitterIds)
+      : { data: [] };
+    const submitterMap = new Map((submitters ?? []).map((p) => [p.id, p.full_name]));
+
+    return {
+      output: {
+        rangeQueried: { start_date: startDate ?? null, end_date: endDate ?? null },
+        count: rows?.length ?? 0,
+        submissions: (rows ?? []).map((r) => ({
+          date: new Date(r.created_at).toISOString().slice(0, 10),
+          submittedBy: r.submitted_by ? (submitterMap.get(r.submitted_by) ?? "Unknown") : "Unknown",
+          clientName: (r.data as Record<string, unknown>)?.client_full_name ?? null,
+        })),
       },
     };
   }
@@ -288,9 +338,12 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey });
 
+    const today = new Date().toISOString().slice(0, 10);
+    const dateNote = `Today's date is ${today}. Use this as ground truth for any relative time period ("this month," "last week," "recently," etc.) — never infer the date from retrieved context, which may be old.`;
+
     const systemPrompt = canManageForms
-      ? "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. Use the conversation history to understand follow-ups (e.g. if you proposed a form's fields earlier and the user says to go ahead, build exactly what you proposed). You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). Use get_overdue_care_plans for any question about overdue or missing care plans — never estimate that from context chunks. After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list."
-      : "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer the user's question using ONLY the provided context below and the conversation history. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1]. Use get_overdue_care_plans for any question about overdue or missing care plans — never estimate that from context chunks.";
+      ? `You are Sola, an assistant for Bethel Divine Healthcare Services. ${dateNote} Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. Use the conversation history to understand follow-ups (e.g. if you proposed a form's fields earlier and the user says to go ahead, build exactly what you proposed). You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). Use get_overdue_care_plans for questions about overdue or missing care plans, and get_care_plan_submissions for anything scoped to a date or period (this month, last week, in May, etc.) — never estimate either from context chunks. After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list.`
+      : `You are Sola, an assistant for Bethel Divine Healthcare Services. ${dateNote} Answer the user's question using ONLY the provided context below and the conversation history. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1]. Use get_overdue_care_plans for questions about overdue or missing care plans, and get_care_plan_submissions for anything scoped to a date or period (this month, last week, in May, etc.) — never estimate either from context chunks.`;
 
     const anthropicMessages: Anthropic.MessageParam[] = [
       ...recentHistory.map((h) => ({ role: h.role, content: h.content })),

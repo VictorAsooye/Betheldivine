@@ -67,7 +67,7 @@ export default function UsersTable() {
   });
 
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="w-full max-w-5xl space-y-4">
       <div className="flex flex-col sm:flex-row gap-3">
         <input
           value={search}
