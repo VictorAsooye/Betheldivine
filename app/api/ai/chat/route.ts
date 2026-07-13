@@ -194,9 +194,19 @@ export async function POST(request: NextRequest) {
   }
 
   let question: string;
+  let history: { role: "user" | "assistant"; content: string }[] = [];
   try {
     const body = await request.json();
     question = body.question;
+    if (Array.isArray(body.history)) {
+      history = body.history.filter(
+        (h: unknown): h is { role: "user" | "assistant"; content: string } =>
+          !!h &&
+          typeof h === "object" &&
+          ((h as { role?: unknown }).role === "user" || (h as { role?: unknown }).role === "assistant") &&
+          typeof (h as { content?: unknown }).content === "string"
+      );
+    }
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -205,10 +215,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "question is required" }, { status: 400 });
   }
 
+  // Cap history so the context window doesn't grow unbounded over a long conversation.
+  const recentHistory = history.slice(-20);
+
   try {
     const chunks = await retrieveContext(supabase, question);
 
-    if (chunks.length === 0 && !canManageForms) {
+    if (chunks.length === 0 && !canManageForms && recentHistory.length === 0) {
       return NextResponse.json({
         answer:
           "I don't have any relevant data to answer that yet — either nothing matching has been added, or embeddings haven't been generated. Try asking about a form, license, or document you know exists.",
@@ -230,10 +243,11 @@ export async function POST(request: NextRequest) {
     const anthropic = new Anthropic({ apiKey });
 
     const systemPrompt = canManageForms
-      ? "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list."
-      : "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer the user's question using ONLY the provided context below. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1].";
+      ? "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer questions using ONLY the provided context — if the answer isn't in it, say so clearly rather than guessing, and cite sources like [1]. Use the conversation history to understand follow-ups (e.g. if you proposed a form's fields earlier and the user says to go ahead, build exactly what you proposed). You can also build and edit forms: use create_form when asked to build a new form, and update_form to change an existing one (call list_forms first if you need its id). After a tool action succeeds, briefly confirm what you did in plain language — no need to restate the raw field list."
+      : "You are Sola, an assistant for Bethel Divine Healthcare Services. Answer the user's question using ONLY the provided context below and the conversation history. If the answer isn't in the context, say so clearly — do not guess. Cite which numbered source each part of your answer came from, e.g. [1].";
 
     const anthropicMessages: Anthropic.MessageParam[] = [
+      ...recentHistory.map((h) => ({ role: h.role, content: h.content })),
       { role: "user", content: `Context:\n\n${contextBlock}\n\nQuestion: ${question}` },
     ];
 

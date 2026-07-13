@@ -57,18 +57,18 @@ function CopyButton({ text }: { text: string }) {
 
 const markdownComponents = {
   p: ({ children }: { children?: React.ReactNode }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
-  h1: ({ children }: { children?: React.ReactNode }) => <h3 className="text-[15px] font-semibold text-ink mt-4 mb-2 first:mt-0">{children}</h3>,
-  h2: ({ children }: { children?: React.ReactNode }) => <h3 className="text-[14.5px] font-semibold text-ink mt-4 mb-2 first:mt-0">{children}</h3>,
-  h3: ({ children }: { children?: React.ReactNode }) => <h4 className="text-[13.5px] font-semibold text-ink mt-3 mb-1.5 first:mt-0">{children}</h4>,
+  h1: ({ children }: { children?: React.ReactNode }) => <h3 className="text-[17px] font-semibold text-ink mt-4 mb-2 first:mt-0">{children}</h3>,
+  h2: ({ children }: { children?: React.ReactNode }) => <h3 className="text-[16.5px] font-semibold text-ink mt-4 mb-2 first:mt-0">{children}</h3>,
+  h3: ({ children }: { children?: React.ReactNode }) => <h4 className="text-[15.5px] font-semibold text-ink mt-3 mb-1.5 first:mt-0">{children}</h4>,
   ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-5 mb-3 space-y-1 last:mb-0">{children}</ul>,
   ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-5 mb-3 space-y-1 last:mb-0">{children}</ol>,
   li: ({ children }: { children?: React.ReactNode }) => <li className="leading-relaxed">{children}</li>,
   strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-ink">{children}</strong>,
   code: ({ children }: { children?: React.ReactNode }) => (
-    <code className="bg-paper2 border border-line rounded px-1 py-0.5 text-[12px] font-mono text-ink">{children}</code>
+    <code className="bg-paper2 border border-line rounded px-1 py-0.5 text-[14px] font-mono text-ink">{children}</code>
   ),
   pre: ({ children }: { children?: React.ReactNode }) => (
-    <pre className="bg-paper2 border border-line rounded-lg p-3 text-[12px] font-mono text-ink overflow-x-auto mb-3">{children}</pre>
+    <pre className="bg-paper2 border border-line rounded-lg p-3 text-[14px] font-mono text-ink overflow-x-auto mb-3">{children}</pre>
   ),
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a href={href} target="_blank" rel="noreferrer" className="text-sage underline hover:text-gold">{children}</a>
@@ -101,6 +101,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
   async function ask(question: string) {
     if (!question.trim() || loading) return;
 
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
@@ -109,7 +110,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history }),
       });
       const data = await res.json();
 
@@ -227,7 +228,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
           {messages.map((msg, i) =>
             msg.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <div className="bg-navy text-paper rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] text-[14px] leading-relaxed">
+                <div className="bg-navy text-paper rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] text-[16px] leading-relaxed">
                   {msg.content}
                 </div>
               </div>
@@ -239,7 +240,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
                   </div>
                   <span className="text-[12px] font-semibold text-ink">Sola</span>
                 </div>
-                <div className="text-[14px] text-ink2 pl-7">
+                <div className="text-[16px] text-ink2 pl-7">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                     {msg.content}
                   </ReactMarkdown>
@@ -283,7 +284,7 @@ export default function SolaSupportChat({ role, lastFormHref, lastFormLabel, gre
           <div ref={threadEndRef} />
         </div>
       )}
-      <div className={inConversation ? "sticky bottom-0 bg-paper pt-2 pb-2" : ""}>
+      <div className={inConversation ? "sticky bottom-0 bg-paper2 pt-2 pb-2" : ""}>
         {inputForm}
         {shortcuts}
       </div>
