@@ -20,6 +20,7 @@ async function resolveLabels(
   const documentIds = chunks.filter((c) => c.source_type === "document").map((c) => c.source_id);
   const formIds = chunks.filter((c) => c.source_type === "form").map((c) => c.source_id);
   const licenseIds = chunks.filter((c) => c.source_type === "license").map((c) => c.source_id);
+  const submissionIds = chunks.filter((c) => c.source_type === "submission").map((c) => c.source_id);
 
   if (documentIds.length) {
     const { data } = await supabase.from("documents").select("id, file_name").in("id", documentIds);
@@ -32,6 +33,18 @@ async function resolveLabels(
   if (licenseIds.length) {
     const { data } = await supabase.from("licenses").select("id, license_name").in("id", licenseIds);
     for (const row of data ?? []) labels.set(`license:${row.id}`, row.license_name);
+  }
+  if (submissionIds.length) {
+    const { data } = await supabase
+      .from("form_submissions")
+      .select("id, created_at, forms(name), profiles!form_submissions_submitted_by_fkey(full_name)")
+      .in("id", submissionIds);
+    for (const row of data ?? []) {
+      const formName = (row.forms as unknown as { name: string } | null)?.name ?? "Form";
+      const submitter = (row.profiles as unknown as { full_name: string } | null)?.full_name;
+      const date = new Date(row.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      labels.set(`submission:${row.id}`, `${formName} — ${submitter ?? "anonymous"}, ${date}`);
+    }
   }
 
   return labels;

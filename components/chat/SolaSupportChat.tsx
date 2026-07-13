@@ -6,7 +6,7 @@ import { Send, Sparkles, Loader2, Camera, FileText } from "lucide-react";
 import { getGreeting, type Greeting } from "@/lib/greeting";
 
 interface Citation {
-  source_type: "document" | "form" | "license";
+  source_type: "document" | "form" | "license" | "submission";
   source_id: string;
   label: string;
 }
@@ -20,7 +20,10 @@ interface ChatMessage {
 type Role = "owner" | "admin" | "employee";
 
 function sourceHref(role: Role, sourceType: Citation["source_type"]): string {
-  const path = sourceType === "document" ? "documents" : sourceType === "form" ? "forms" : "licenses";
+  const path =
+    sourceType === "document" ? "documents" :
+    sourceType === "license" ? "licenses" :
+    "forms";
   return `/${role}/${path}`;
 }
 

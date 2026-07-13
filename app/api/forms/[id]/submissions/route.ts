@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { embedAndStore, submissionEmbedContent } from "@/lib/embeddings";
 
 export async function GET(
   _request: NextRequest,
@@ -59,5 +60,17 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const [{ data: form }, { data: submitterProfile }] = await Promise.all([
+    supabase.from("forms").select("name, schema").eq("id", params.id).single(),
+    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+  ]);
+  if (form) {
+    const content = submissionEmbedContent(form.name, form.schema?.fields ?? [], formData, submitterProfile?.full_name);
+    embedAndStore("submission", data.id, content, null).catch((e) =>
+      console.error("[submissions] embedding failed", e)
+    );
+  }
+
   return NextResponse.json(data, { status: 201 });
 }

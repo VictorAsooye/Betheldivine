@@ -1,6 +1,7 @@
 // Public form endpoint — no auth required, returns active form schema only
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { embedAndStore, submissionEmbedContent } from "@/lib/embeddings";
 
 export async function GET(
   _request: NextRequest,
@@ -48,7 +49,7 @@ export async function POST(
   // Verify the form exists and is active
   const { data: form } = await service
     .from("forms")
-    .select("id")
+    .select("id, name, schema")
     .eq("id", params.id)
     .eq("is_active", true)
     .single();
@@ -84,5 +85,11 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const content = submissionEmbedContent(form.name, form.schema?.fields ?? [], formData, submitter_name);
+  embedAndStore("submission", data.id, content, null).catch((e) =>
+    console.error("[public submissions] embedding failed", e)
+  );
+
   return NextResponse.json({ success: true, id: data.id }, { status: 201 });
 }

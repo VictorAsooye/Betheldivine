@@ -1,7 +1,8 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { embedDocument } from "@/lib/voyage";
+import type { FormField } from "@/components/FormRenderer";
 
-export type EmbeddingSourceType = "document" | "form" | "license";
+export type EmbeddingSourceType = "document" | "form" | "license" | "submission";
 
 const CHUNK_CHARS = 3000; // ~750 tokens
 
@@ -58,6 +59,37 @@ export async function embedAndStore(
   if (error) {
     console.error("[embeddings] failed to store", sourceType, sourceId, error.message);
   }
+}
+
+// Formats a submission's answers as readable text for embedding, so Sola can
+// answer questions using the actual values a client/employee submitted.
+export function submissionEmbedContent(
+  formName: string,
+  fields: FormField[],
+  data: Record<string, unknown>,
+  submitterName?: string | null
+): string {
+  const lines: string[] = [`Form: ${formName}`];
+  if (submitterName) lines.push(`Submitted by: ${submitterName}`);
+
+  for (const field of fields) {
+    if (field.type === "section") continue;
+    const value = data[field.id];
+    if (value === undefined || value === null || value === "") continue;
+
+    let formatted: string;
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      formatted = value.join(", ");
+    } else if (typeof value === "boolean") {
+      formatted = value ? "Yes" : "No";
+    } else {
+      formatted = String(value);
+    }
+    lines.push(`${field.label}: ${formatted}`);
+  }
+
+  return lines.join("\n");
 }
 
 export async function deleteEmbeddings(sourceType: EmbeddingSourceType, sourceId: string): Promise<void> {

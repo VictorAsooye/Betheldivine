@@ -13,6 +13,7 @@ import {
   Trash2,
   Plus,
   Shield,
+  FileText,
 } from "lucide-react";
 
 type Role = "admin" | "owner" | "employee";
@@ -31,6 +32,14 @@ interface Doc {
   mime_type: string | null;
   created_at: string;
   folder_id: string | null;
+  profiles?: { full_name?: string } | null;
+}
+
+interface RecentSubmission {
+  id: string;
+  form_id: string;
+  created_at: string;
+  forms?: { name?: string } | null;
   profiles?: { full_name?: string } | null;
 }
 
@@ -56,22 +65,26 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
   const canManage = role === "admin" || role === "owner";
   const [folders, setFolders] = useState<Folder[]>([]);
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
-    const [fRes, dRes] = await Promise.all([
+    const [fRes, dRes, sRes] = await Promise.all([
       fetch("/api/documents/folders"),
       fetch("/api/documents"),
+      fetch("/api/forms/submissions/recent"),
     ]);
-    const [fData, dData] = await Promise.all([fRes.json(), dRes.json()]);
+    const [fData, dData, sData] = await Promise.all([fRes.json(), dRes.json(), sRes.json()]);
     setFolders(Array.isArray(fData) ? fData : []);
     setDocs(Array.isArray(dData) ? dData : []);
+    setRecentSubmissions(Array.isArray(sData) ? sData : []);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -88,12 +101,6 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
     if (search.trim()) list = list.filter((d) => d.file_name.toLowerCase().includes(search.toLowerCase()));
     return list;
   }, [docs, selectedFolder, search]);
-
-  const recentDocs = useMemo(() => {
-    return [...docs]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5);
-  }, [docs]);
 
   function relativeTime(iso: string) {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -120,11 +127,15 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
   }
 
   async function handleDownload(doc: Doc) {
-    const res = await fetch(`/api/documents/${doc.id}`);
-    const data = await res.json();
-    if (res.ok && data.url) {
+    try {
+      const res = await fetch(`/api/documents/${doc.id}`);
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Couldn't get a download link");
       const a = document.createElement("a");
       a.href = data.url; a.download = data.file_name ?? doc.file_name; a.target = "_blank"; a.click();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Download failed");
+      setTimeout(() => setToast(null), 3000);
     }
   }
 
@@ -136,6 +147,10 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[60] bg-navy text-white text-[13px] px-4 py-2.5 rounded-lg shadow-lg">{toast}</div>
+      )}
+
       {/* Search */}
       <div className="flex items-center gap-3 border-b-[1.5px] border-ink pb-2 max-w-md">
         <Search className="w-4 h-4 text-muted flex-shrink-0" />
@@ -201,26 +216,6 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
         )}
       </div>
 
-      {/* Recent */}
-      {!loading && recentDocs.length > 0 && !selectedFolder && !search.trim() && (
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Recent</p>
-          {recentDocs.map((doc) => {
-            const cfg = fileTypeIcon(doc.mime_type);
-            const Icon = cfg.Icon;
-            return (
-              <div key={doc.id} className="flex items-center gap-3 py-2.5 border-b border-line text-[12.5px]">
-                <Icon className="w-3.5 h-3.5 text-sage flex-shrink-0" />
-                <span className="text-ink font-medium truncate flex-1 min-w-0">{doc.file_name}</span>
-                <span className="text-muted flex-shrink-0">
-                  {[doc.profiles?.full_name, relativeTime(doc.created_at)].filter(Boolean).join(" · ")}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* Care plan archive */}
       <Link href={`/${role}/documents/care-plans`} className="block bg-warning-bg border border-warning-border rounded-xl p-4 flex items-center gap-3">
         <FolderArchive className="w-5 h-5 text-warning-text" />
@@ -258,7 +253,7 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Link href={`/view?d=${doc.id}`} className="p-1.5 text-muted hover:text-ink" title="View"><Eye className="w-4 h-4" /></Link>
+                  <Link href={`/view/doc?d=${doc.id}`} className="p-1.5 text-muted hover:text-ink" title="View"><Eye className="w-4 h-4" /></Link>
                   <button onClick={() => handleDownload(doc)} className="p-1.5 text-muted hover:text-ink" title="Download"><Download className="w-4 h-4" /></button>
                   {canManage && (
                     <button onClick={() => handleDelete(doc.id)} className="p-1.5 text-muted hover:text-danger-text" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -269,6 +264,37 @@ export default function DocumentsBrowser({ role }: { role: Role }) {
           })
         )}
       </div>
+
+      {/* Recently submitted forms */}
+      {!loading && recentSubmissions.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">Recently submitted</p>
+          {recentSubmissions.map((sub) => {
+            const row = (
+              <>
+                <FileText className="w-3.5 h-3.5 text-sage flex-shrink-0" />
+                <span className="text-ink font-medium truncate flex-1 min-w-0">{sub.forms?.name ?? "Form"}</span>
+                <span className="text-muted flex-shrink-0">
+                  {[sub.profiles?.full_name, relativeTime(sub.created_at)].filter(Boolean).join(" · ")}
+                </span>
+              </>
+            );
+            return canManage ? (
+              <Link
+                key={sub.id}
+                href={`/${role}/forms/${sub.form_id}/submissions`}
+                className="flex items-center gap-3 py-2.5 border-b border-line text-[12.5px] hover:text-navy transition"
+              >
+                {row}
+              </Link>
+            ) : (
+              <div key={sub.id} className="flex items-center gap-3 py-2.5 border-b border-line text-[12.5px]">
+                {row}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

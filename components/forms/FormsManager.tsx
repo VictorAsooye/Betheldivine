@@ -17,12 +17,6 @@ interface FormItem {
   submission_count?: number;
 }
 
-interface EmployeeRow {
-  id: string;
-  profile_id: string;
-  profiles?: { full_name?: string; email?: string } | null;
-}
-
 interface ChatMessage {
   role: "ai" | "user";
   text: string;
@@ -49,11 +43,6 @@ export default function FormsManager({ role }: { role: Role }) {
   const [generating, setGenerating] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
 
-  // Send modal
-  const [sendForm, setSendForm] = useState<FormItem | null>(null);
-  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-  const [selectedEmp, setSelectedEmp] = useState<Set<string>>(new Set());
-  const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   // Editor modal
@@ -73,13 +62,6 @@ export default function FormsManager({ role }: { role: Role }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    if (sendForm) {
-      fetch("/api/employees").then((r) => r.json()).then((d) => setEmployees(Array.isArray(d) ? d : []));
-      setSelectedEmp(new Set());
-    }
-  }, [sendForm]);
 
   async function handleGenerate() {
     if (!prompt.trim()) return;
@@ -198,28 +180,6 @@ export default function FormsManager({ role }: { role: Role }) {
     }
   }
 
-  async function handleSend() {
-    if (!sendForm || selectedEmp.size === 0) return;
-    setSending(true);
-    try {
-      const res = await fetch(`/api/forms/${sendForm.id}/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ formId: sendForm.id, employeeIds: Array.from(selectedEmp) }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Send failed");
-      setToast(`Sent to ${d.sent} employee${d.sent !== 1 ? "s" : ""}`);
-      setSendForm(null);
-      setTimeout(() => setToast(null), 2800);
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Failed to send");
-      setTimeout(() => setToast(null), 2800);
-    } finally {
-      setSending(false);
-    }
-  }
-
   const suggestionChips = ["Add a medication section", "Make all fields required", "Add emergency contact"];
 
   return (
@@ -325,60 +285,11 @@ export default function FormsManager({ role }: { role: Role }) {
                   </button>
                   <div className="flex items-center gap-4 flex-shrink-0">
                     <Link href={`/${role}/forms/${f.id}/fill`} className="text-[12px] font-semibold text-sage hover:text-gold transition">New</Link>
-                    <button onClick={() => setSendForm(f)} className="text-[12px] font-semibold text-sage hover:text-gold transition">Send</button>
                     <Link href={`/${role}/forms/${f.id}/submissions`} className="text-[12px] text-muted hover:text-ink transition">Submissions</Link>
                   </div>
                 </div>
               );
             })}
-        </div>
-      )}
-
-      {/* Send modal */}
-      {sendForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/50" onClick={() => setSendForm(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[16px] font-semibold text-ink">Send form</h2>
-              <button onClick={() => setSendForm(null)} className="text-muted"><X className="w-5 h-5" /></button>
-            </div>
-            <input readOnly value={sendForm.name} className="w-full bg-paper2 border border-line2 rounded-lg px-3 py-2 text-[13px] text-muted mb-4" />
-            <p className="text-[12px] uppercase tracking-wide text-muted mb-2">Select employees</p>
-            <div className="max-h-64 overflow-y-auto border border-line2 rounded-lg divide-y divide-line">
-              {employees.length === 0 ? (
-                <p className="text-[13px] text-muted p-3">No employees found.</p>
-              ) : employees.map((e) => {
-                const checked = selectedEmp.has(e.profile_id);
-                return (
-                  <label key={e.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        setSelectedEmp((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(e.profile_id)) next.delete(e.profile_id); else next.add(e.profile_id);
-                          return next;
-                        });
-                      }}
-                      style={{ accentColor: "#C9A84C" }}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-[13px] text-ink truncate">{e.profiles?.full_name ?? "—"}</p>
-                      <p className="text-[12px] text-muted truncate">{e.profiles?.email}</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <button
-              onClick={handleSend}
-              disabled={sending || selectedEmp.size === 0}
-              className="w-full mt-4 bg-gold text-navy rounded-lg py-2.5 text-[13px] font-medium disabled:opacity-50"
-            >
-              {sending ? "Sending…" : "Send form"}
-            </button>
-          </div>
         </div>
       )}
 
