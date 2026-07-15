@@ -399,7 +399,7 @@ export default function OnboardingPage() {
       <header className="bg-paper border-b border-line h-14 flex items-center px-6 justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-gold" />
-          <span className="text-navy font-semibold text-[15px]">Sola Support</span>
+          <span className="text-navy font-semibold text-[15px]">Sola AI Support</span>
         </div>
         <button
           onClick={completeOnboarding}
